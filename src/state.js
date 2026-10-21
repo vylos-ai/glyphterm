@@ -4,6 +4,7 @@
 import { PRIMITIVE_NAMES, isPrimitive } from "./models.js";
 import { PAPER } from "./themes.js";
 import { clampField, defaultsFor } from "./wave.js";
+import { CONTEXT_LIMIT } from "./session.js";
 
 /** `options` are the validated settings from the command line (see settings.js). */
 export function createState(options) {
@@ -40,6 +41,11 @@ export function createState(options) {
     activityShown: "",
     sceneActivity: options.activity ?? "",
     motion: null,
+    // The stats line (toggled with i), the context window its meter fills up
+    // to, and the agent session it shows, from the hooks.
+    stats: options.stats ?? false,
+    contextLimit: options.contextLimit ?? CONTEXT_LIMIT,
+    session: options.session ?? null,
     message: "",
     messageIsError: false,
     fps: 0,

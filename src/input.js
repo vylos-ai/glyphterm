@@ -75,6 +75,7 @@ const KEYS = [
     },
   },
   { keys: [" "], run: (s) => void (s.paused = !s.paused) },
+  { keys: ["i", "I"], run: (s) => void (s.stats = !s.stats) },
   {
     keys: ["[", "]"],
     run: (s, key) => {

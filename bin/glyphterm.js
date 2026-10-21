@@ -17,7 +17,7 @@ import { unknownSceneKeys } from "../src/settings.js";
 import { resolveSceneModel } from "../src/scene.js";
 import { openPane, shellCommand } from "../src/open.js";
 import { ACTIVITIES, ACTIVITY_IDS, AVATAR_NAMES, DEFAULT_AVATAR } from "../src/avatar.js";
-import { avatarFile, hookActivity, writeActivity, readActivity, hooksConfig } from "../src/hooks.js";
+import { avatarFile, hookChanges, updateAvatar, writeActivity, readActivity, hooksConfig } from "../src/hooks.js";
 import { ANIMATED, POSABLE } from "../src/models.js";
 import { WAVEFORM_NAMES, GRADIENT_NAMES, WAVE_LIMITS, LINE_LIMITS } from "../src/wave.js";
 
@@ -70,7 +70,10 @@ Avatar
   glyphterm avatar [model]           start the avatar viewer: ${AVATAR_NAMES.join(" or ")} (default: ${DEFAULT_AVATAR}), or any model
   glyphterm avatar <activity>        set what it shows: ${ACTIVITY_IDS.join(", ")}, or none
       --detail <text>   with an activity: a short note shown next to it, e.g. a file name
-      --hook            read a Claude Code hook event on stdin and set the matching activity
+      --hook            read a Claude Code hook event on stdin and set the matching activity,
+                        plus the session's stats (tokens, tool calls) from its transcript
+      --stats           show the stats line under the scene (i toggles it)
+      --context-limit <tokens>  the context window its meter fills up to (default: 200000)
       --print-hooks     print the Claude Code settings that run --hook on every event
   The avatar's file is ${shellCommand([avatarFile()])}
   (GLYPHTERM_AVATAR or --watch choose another). error and done are short and end by themselves.
@@ -82,7 +85,7 @@ Other
 
 Keys
   drag / arrows / hjkl rotate · wheel / + - zoom · s style · g glyphs · c color
-  m next model · a next avatar · space pause · [ ] spin speed · 1-7 pick style · r reset · q quit
+  m next model · a next avatar · i stats · space pause · [ ] spin speed · 1-7 pick style · r reset · q quit
 `;
 
 function fail(message) {
@@ -117,6 +120,8 @@ try {
       lines: { type: "string" },
       gradient: { type: "string" },
       data: { type: "string" },
+      stats: { type: "boolean" },
+      "context-limit": { type: "string" },
       once: { type: "boolean" },
       cols: { type: "string" },
       rows: { type: "string" },
@@ -191,8 +196,8 @@ if (avatar) {
   if (args.hook) {
     // A hook must never get in the agent's way: no output, always exit 0.
     try {
-      const change = hookActivity(JSON.parse(readFileSync(0, "utf8")), readActivity(file));
-      if (change) writeActivity(file, change.activity, change.detail);
+      const changes = hookChanges(JSON.parse(readFileSync(0, "utf8")), readActivity(file));
+      if (changes) updateAvatar(file, changes);
     } catch {
       // Malformed input or an unwritable file: the avatar just doesn't change.
     }
@@ -266,6 +271,8 @@ const flags = defined({
   pitch: number(args.pitch, "pitch"),
   zoom: number(args.zoom, "zoom"),
   spin: number(args.spin, "spin"),
+  stats: args.stats,
+  contextLimit: number(args["context-limit"], "context-limit"),
 });
 const flagWave = defined({
   waveform: args.waveform,

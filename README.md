@@ -42,6 +42,7 @@ Or try it without installing: `npx github:vylos-ai/glyphterm`. From a clone, run
 | `c` / `C`                  | color: phosphor, amber, cyan, magenta, ice, paper, original         |
 | `m` / `M`                  | next / previous model                                               |
 | `a` / `A`                  | next / previous avatar (cloud, core, buddy), each with its own view |
+| `i`                        | show / hide the agent's session stats (see below)                   |
 | `space`                    | pause auto-rotation                                                 |
 | `[` / `]`                  | spin slower / faster                                                |
 | `r`                        | reset view                                                          |
@@ -224,6 +225,27 @@ Anything else can set an activity too: `glyphterm avatar coding --detail src/app
 `GLYPHTERM_AVATAR` or pass `--watch` to use another file, for example one per project.
 The hooks only send file names and short tool descriptions, never your prompts.
 
+**Session stats.** Press `i` (or start with `--stats`) for a line of numbers under the
+avatar: the model, the context in use (the tokens the latest request sent) with a meter,
+the share of input read from the prompt cache, output tokens, tool calls, failed tool calls
+and subagents so far (subagents included), and how long the session has run:
+
+```
+ opus 5.5 · context 76.3k ▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮ 38% · cache 97% · output 38.5k · tools 47 · 19m
+```
+
+The meter is a row of LED segments like an 80s equalizer: green, amber from 60% and red from
+85% of the context window, so the lit segments reach red as the session nears compaction.
+Each segment is a round number of tokens (5k for 200k in 40 segments); it takes the room
+the other numbers leave and is left out when there's too little. The transcript doesn't
+say how large the window is, so set it with `--context-limit` or `"contextLimit"` in the
+scene (default 200000; use 1000000 for a 1M window). A low cache share means slower, more
+expensive requests, such as after a long pause.
+
+The hooks read them from the session's transcript and write them to the avatar file as
+`session`, next to `stats` (whether the line shows). The line works with any model in the
+viewer, as long as something writes `session` to its scene file.
+
 ## How it works
 
 ```
@@ -245,6 +267,7 @@ mesh file / primitive ──► normalize (center, radius 1, y-up)
 - `src/core-avatar.js`: the core avatar: forms, orbit ring and grid floor per activity
 - `src/cloud-avatar.js`: the cloud avatar: a particle formation per activity, regrouping between them
 - `src/hooks.js`: `glyphterm avatar`: its file, and Claude Code hook events → activities
+- `src/session.js`: session stats (tokens, tool calls) from a Claude Code transcript
 - `bin/glyphterm.js`: CLI
 
 Notes:

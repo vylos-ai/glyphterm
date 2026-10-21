@@ -6,6 +6,7 @@ import { readFileSync, writeFileSync, renameSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, relative, isAbsolute } from "node:path";
 import { ACTIVITY_IDS } from "./avatar.js";
+import { sessionStats } from "./session.js";
 
 /** Where the avatar viewer and the hooks meet, unless --watch names another file. */
 export function avatarFile(env = process.env, platform = process.platform) {
@@ -102,11 +103,11 @@ export function hookActivity(event, current = "") {
 }
 
 /**
- * Set the avatar's activity and caption in the scene file, keeping its other
- * keys. "none" clears both. The write is atomic, so the viewer never reads
- * half a file. Returns the activity the file held before.
+ * Merge `changes` into the avatar's scene file, keeping its other keys. The
+ * write is atomic, so the viewer never reads half a file. Returns the
+ * activity the file held before.
  */
-export function writeActivity(file, activity, detail = "") {
+export function updateAvatar(file, changes) {
   let scene = {};
   try {
     const parsed = JSON.parse(readFileSync(file, "utf8"));
@@ -115,13 +116,31 @@ export function writeActivity(file, activity, detail = "") {
     // Missing or broken: start a new one.
   }
   const before = scene.activity ?? "";
-  scene.activity = activity === "none" ? "" : activity;
-  scene.caption = activity === "none" ? "" : short(detail);
+  Object.assign(scene, changes);
   mkdirSync(dirname(file), { recursive: true });
   const temp = `${file}.${process.pid}.tmp`;
   writeFileSync(temp, JSON.stringify(scene, null, 2) + "\n");
   renameSync(temp, file);
   return before;
+}
+
+/** The scene keys for an activity and its caption; "none" clears both. */
+export const activityKeys = (activity, detail = "") =>
+  activity === "none" ? { activity: "", caption: "" } : { activity, caption: short(detail) };
+
+/** Set the avatar's activity and caption. Returns the activity the file held before. */
+export const writeActivity = (file, activity, detail = "") => updateAvatar(file, activityKeys(activity, detail));
+
+/**
+ * Everything one hook event changes in the avatar's file: the activity, if
+ * it changes, and the session's stats, if the event names a readable
+ * transcript. Null when there is nothing to write.
+ */
+export function hookChanges(event, current = "") {
+  const change = hookActivity(event, current);
+  const session = sessionStats(event?.transcript_path);
+  if (!change && !session) return null;
+  return { ...(change && activityKeys(change.activity, change.detail)), ...(session && { session }) };
 }
 
 /** The activity the avatar file names now, or "". */

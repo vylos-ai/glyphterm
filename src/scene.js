@@ -33,6 +33,9 @@ export function sceneSnapshot(state, scenePath) {
     paused: state.paused,
     caption: state.caption,
     ...(state.activity && { activity: state.activity }),
+    stats: state.stats,
+    contextLimit: state.contextLimit,
+    ...(state.session && { session: state.session }),
     ...(isAnimated(state) && { wave: { ...state.wave } }),
     ...(isField(state) && {
       gradient: state.gradient.name === "custom" ? state.gradient.stops : state.gradient.name,

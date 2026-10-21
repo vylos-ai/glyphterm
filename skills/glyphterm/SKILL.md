@@ -69,7 +69,8 @@ to it: `scene.json` → `scene.status.json`.
 2. Change only the keys you need. The format is in `schema/scene.schema.json`
    (its path is in `--list --json` as `sceneSchema`): `model`, `style`,
    `palette`, `color`, `yaw`, `pitch`, `zoom`, `spin`, `paused`, `caption`,
-   `wave`, `gradient`, `data`. A `model` path is either absolute or relative
+   `stats`, `contextLimit`, `wave`, `gradient`, `data` (and `activity`, `session`, which the
+   avatar's hooks write). A `model` path is either absolute or relative
    to the scene file.
 3. **Read the status file** after about half a second:
    - **`running: false`, or no update:** the viewer isn't running.
@@ -113,6 +114,11 @@ glyphterm avatar error --detail "build broke" # when you're stuck
 ```
 
 These are silent and exit 0. Unknown activities exit 2.
+
+The hooks also write the session's stats (model, context, cache share, output tokens, tool calls, failed calls) to the avatar file as
+`session`. `"stats": true` (or the `i` key) shows them under the avatar; leave
+that switch to the user. `contextLimit` (tokens, default 200000) is the window
+its context meter fills up to.
 
 ## Animated models
 

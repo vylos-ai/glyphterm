@@ -127,6 +127,62 @@
       ],
       "description": "What the avatar shows (glyphterm avatar): a motion for any model, plus a pose for the buddy. error and done are short and return by themselves; \"\" clears it."
     },
+    "stats": {
+      "type": "boolean",
+      "description": "Shows the stats line under the scene (the i key toggles it)."
+    },
+    "contextLimit": {
+      "type": "integer",
+      "minimum": 10000,
+      "maximum": 10000000,
+      "description": "The context window the stats line's meter fills up to (default 200000)."
+    },
+    "session": {
+      "type": "object",
+      "description": "The agent session the stats line shows. glyphterm avatar --hook writes it from the Claude Code transcript.",
+      "properties": {
+        "model": {
+          "type": "string",
+          "description": "The model of the latest reply."
+        },
+        "context": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Tokens the latest request sent: the context in use."
+        },
+        "cache": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percent of all input read from the prompt cache, subagents included."
+        },
+        "output": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Output tokens so far, subagents included."
+        },
+        "tools": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Tool calls so far, subagents included."
+        },
+        "failed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Tool calls that came back as errors."
+        },
+        "agents": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Subagents started."
+        },
+        "seconds": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Time from the first reply to the latest."
+        }
+      }
+    },
     "wave": {
       "type": "object",
       "description": "Settings of the animated models wave and field.",

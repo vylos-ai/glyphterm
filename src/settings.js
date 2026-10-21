@@ -5,12 +5,14 @@ import { STYLE_IDS, PALETTES } from "./render.js";
 import { THEME_NAMES, resolveTheme } from "./themes.js";
 import { WAVEFORM_NAMES, GRADIENT_NAMES, WAVE_VIEW, FIELD_VIEW, resolveGradient } from "./wave.js";
 import { ACTIVITY_IDS } from "./avatar.js";
+import { SESSION_NUMBERS } from "./session.js";
 
 export const LIMITS = {
   pitch: [-89, 89],
   zoom: [0.2, 8],
   spin: [-720, 720],
   fps: [1, 120],
+  contextLimit: [10_000, 10_000_000],
 };
 
 export const clamp = (value, [min, max]) => Math.max(min, Math.min(max, value));
@@ -46,6 +48,9 @@ export const SCENE_KEYS = [
   "paused",
   "caption",
   "activity",
+  "stats",
+  "contextLimit",
+  "session",
   "wave",
   "gradient",
   "data",
@@ -117,6 +122,22 @@ export function parseSettings(input) {
   if (typeIs("caption", input.caption, "string")) values.caption = input.caption;
   // "" clears the activity.
   pick("activity", (id) => id === "" || ACTIVITY_IDS.includes(id), `${ACTIVITY_IDS.join(", ")}, or "" for none`);
+
+  if (typeIs("stats", input.stats, "boolean")) values.stats = input.stats;
+  if (typeIs("contextLimit", input.contextLimit, "number")) {
+    values.contextLimit = Math.round(clamp(input.contextLimit, LIMITS.contextLimit));
+  }
+  // Written by the hooks (see session.js); fields of the wrong type are dropped.
+  if (typeIs("session", input.session, "object")) {
+    const { model } = input.session;
+    const count = (n) => Number.isFinite(n) && n >= 0;
+    values.session = {
+      ...(typeof model === "string" && { model }),
+      ...Object.fromEntries(
+        SESSION_NUMBERS.filter((key) => count(input.session[key])).map((key) => [key, input.session[key]]),
+      ),
+    };
+  }
 
   // Wave settings are merged into the current ones and clamped there (see clampField).
   if (typeIs("wave", input.wave, "object")) {
