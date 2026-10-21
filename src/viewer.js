@@ -159,7 +159,7 @@ export async function runViewer(options) {
     const cols = out.columns || 80;
     const rows = out.rows || 24;
     let scene = [];
-    if (state.polygons.length || state.lines) {
+    if (state.polygons.length || state.lines || state.points) {
       try {
         scene = renderFrame({
           polygons: state.polygons,
@@ -171,6 +171,7 @@ export async function runViewer(options) {
           zoom: state.zoom,
           motion: state.motion,
           underlay: state.underlay,
+          points: state.points,
           glow: isAnimated(state),
           cols,
           rows: sceneRows(state, rows),

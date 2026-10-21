@@ -6,6 +6,7 @@ import { htmlToLines, visibleLength, halfblockPixels, downsamplePixels, pixelsTo
 import { loadModel, PRIMITIVE_NAMES, ANIMATED } from "../src/models.js";
 import { renderFrame, STYLES } from "../src/render.js";
 import { resolveTheme } from "../src/themes.js";
+import { modelGeometry } from "../src/geometry.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 
@@ -40,9 +41,10 @@ test("half-block pixels survive a round trip, and downsampling blends colors", (
 
 test("every primitive renders in every style at the requested size", async () => {
   for (const name of PRIMITIVE_NAMES.filter((n) => !ANIMATED.includes(n))) {
-    const { polygons } = await loadModel(name);
+    // Avatars are built per frame: polygons, or points for the cloud.
+    const geometry = modelGeometry(await loadModel(name));
     for (const style of STYLES) {
-      const lines = renderFrame({ polygons, style, yaw: 30, pitch: 20, cols: 40, rows: 12 });
+      const lines = renderFrame({ ...geometry, style, yaw: 30, pitch: 20, cols: 40, rows: 12 });
       assert.equal(lines.length, 12, `${name}/${style.id} rows`);
       for (const line of lines) assert.equal(visibleLength(line), 40, `${name}/${style.id} width`);
       assert.ok(

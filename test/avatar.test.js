@@ -16,7 +16,7 @@ import {
   currentActivity,
   activityMotion,
   smoothMotion,
-  avatarPolygons,
+  avatarGeometry,
   AVATAR_NAMES,
   DEFAULT_AVATAR,
 } from "../src/avatar.js";
@@ -59,8 +59,9 @@ test("every activity moves smoothly and every avatar stays within its bounds", (
       const motion = activityMotion(state, t);
       for (const value of Object.values(motion)) assert.ok(Number.isFinite(value), `${id} at ${t}`);
       for (const name of AVATAR_NAMES) {
-        const polygons = avatarPolygons(name, { activity: id, age: t }, t);
-        const radius = Math.max(...polygons.flatMap((p) => p.vertices.map((v) => Math.hypot(...v))));
+        const { polygons, points } = avatarGeometry(name, { activity: id, previous: "thinking", age: t }, t);
+        const spots = points ? points.map((p) => p.at) : polygons.flatMap((p) => p.vertices);
+        const radius = Math.max(...spots.map((v) => Math.hypot(...v)));
         const smallest = id === "sleeping" && name === "core" ? 0.3 : 0.6;
         assert.ok(radius > smallest && radius < 1.15, `${name} ${id} at ${t}: radius ${radius}`);
       }
@@ -74,7 +75,7 @@ test("the core moves itself, flashes on a change, and has a floor in half-block 
   setActivity(state, "coding", 0);
   assert.deepEqual(activityMotion(state, 1), { yaw: 0, pitch: 0, roll: 0, x: 0, y: 0, scale: 1 });
 
-  const color = (age) => avatarPolygons("core", { activity: "coding", age }, 1).at(0).color;
+  const color = (age) => avatarGeometry("core", { activity: "coding", age }, 1).polygons.at(0).color;
   assert.equal(color(5), ACTIVITIES.coding.color);
   assert.notEqual(color(0.05), ACTIVITIES.coding.color, "white flash right after the change");
 
@@ -130,6 +131,29 @@ test("motion eases toward the target and turns the short way round", () => {
   assert.ok(eased.y > 0 && eased.y < 0.2);
 });
 
+test("the cloud regroups from one formation to the next and draws its characters by depth", () => {
+  const look = (age) => ({ activity: "coding", previous: "thinking", age });
+  const { points } = avatarGeometry("cloud", look(9), 9);
+  assert.ok(points.length > 100);
+  assert.ok(points.every((p) => p.color === ACTIVITIES.coding.color && p.char.length === 1));
+
+  // Halfway, some particles are still on their way, in the old color.
+  const halfway = avatarGeometry("cloud", look(0.8), 9).points;
+  assert.ok(halfway.some((p) => p.color === ACTIVITIES.thinking.color));
+  assert.ok(halfway.some((p) => p.color === ACTIVITIES.coding.color));
+  const settled = avatarGeometry("cloud", { activity: "coding" }, 9).points;
+  assert.deepEqual(
+    avatarGeometry("cloud", look(5), 9).points.map((p) => p.at),
+    settled.map((p) => p.at),
+    "once there, the old formation no longer matters",
+  );
+
+  const frame = renderFrame({ points, style: findStyle("halfblock"), cols: 60, rows: 24, color: false });
+  assert.equal(frame.length, 24);
+  assert.ok(frame.every((line) => [...line].length === 60 && !line.includes("\x1b")));
+  assert.ok(frame.join("").replace(/ /g, "").length > 80, "plenty of characters drawn");
+});
+
 test("a switches between the avatars with their own views; m still cycles every model", () => {
   const { values } = parseSettings({ style: "halfblock", color: "phosphor", ...viewDefaultsFor("torus") });
   const options = { ...values, model: "torus", fps: 30 };
@@ -145,7 +169,9 @@ test("a switches between the avatars with their own views; m still cycles every 
   assert.ok(AVATAR_NAMES.includes(other) && other !== DEFAULT_AVATAR);
   assert.equal(state.pitch, viewDefaultsFor(other).pitch);
   assert.equal(pick("A"), DEFAULT_AVATAR);
-  assert.ok(!AVATAR_NAMES.includes(pick("m")), "m goes on to the next model, whatever it is");
+  const before = state.sourceIdx;
+  pick("m");
+  assert.equal(state.sourceIdx, (before + 1) % state.sources.length, "m goes on to the next model, whatever it is");
 });
 
 test("the scene file restarts an activity only when it names a new one", () => {

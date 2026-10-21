@@ -5,6 +5,7 @@
 // set by one word in the scene file, from Claude Code hooks or by the agent.
 
 import { corePolygons, CORE_FLOOR } from "./core-avatar.js";
+import { cloudPoints } from "./cloud-avatar.js";
 
 /** How long the viewer may sit at "waiting" before the avatar falls asleep, in seconds. */
 export const SLEEP_AFTER = 300;
@@ -100,6 +101,9 @@ export function setActivity(state, activity, time = state.time) {
   // both. Anything happening means the agent is no longer blocked on the user.
   const before = state.activity === "needs-you" ? "thinking" : state.activity;
   state.activityBefore = duration ? (ACTIVITIES[state.activity]?.duration ? state.activityBefore : before) : "";
+  // What was on screen, for avatars that move from one look to the next.
+  const asleep = state.activity === "waiting" && time - state.activitySince > SLEEP_AFTER;
+  state.activityShown = asleep ? "sleeping" : state.activity;
   state.activity = activity;
   state.activitySince = time;
 }
@@ -321,27 +325,40 @@ export function buddyPolygons(pose, t = 0) {
 
 const REST = { arms: "rest", eyes: "blink" };
 
+const colorOf = (activity) => ACTIVITIES[activity]?.color ?? null;
+
 /**
  * Models built for the avatar, rebuilt every frame for the activity shown.
- * `polygons(activity, t, age)`: `age` is the time since the activity began.
- * The core moves itself, so the generic motions are left out for it.
+ * `build(look, t)` returns any of `polygons`, `points` (the cloud) and
+ * `underlay` (the core's floor); see avatarLook for `look`. Avatars that
+ * move themselves leave out the generic motions.
  */
 export const AVATARS = {
-  buddy: { polygons: (activity, t) => buddyPolygons(ACTIVITIES[activity]?.pose ?? REST, t) },
-  core: { polygons: corePolygons, underlay: CORE_FLOOR, movesItself: true },
+  cloud: { build: (look, t) => ({ points: cloudPoints(look, t, colorOf) }), movesItself: true },
+  core: {
+    build: ({ activity, age }, t) => ({ polygons: corePolygons(activity, t, age), underlay: CORE_FLOOR }),
+    movesItself: true,
+  },
+  buddy: { build: ({ activity }, t) => ({ polygons: buddyPolygons(ACTIVITIES[activity]?.pose ?? REST, t) }) },
 };
 
 export const AVATAR_NAMES = Object.keys(AVATARS);
-export const DEFAULT_AVATAR = "core";
+export const DEFAULT_AVATAR = "cloud";
 
-/** What the viewer passes to `avatarPolygons` for the moment `time`. */
+/**
+ * The look of an avatar at `time`: the activity shown, the one shown before
+ * it, and `age`, the seconds since the change (for flashes and transitions).
+ */
 export function avatarLook(state, time = state.time) {
   const activity = currentActivity(state, time) ?? "";
-  const since =
-    activity === "sleeping" && state.activity === "waiting" ? state.activitySince + SLEEP_AFTER : state.activitySince;
-  return { activity, age: time - since };
+  if (activity === "sleeping" && state.activity === "waiting") {
+    return { activity, previous: "waiting", age: time - state.activitySince - SLEEP_AFTER };
+  }
+  return { activity, previous: state.activityShown ?? "", age: time - state.activitySince };
 }
 
-export function avatarPolygons(name, { activity = "", age = Infinity } = {}, t = 0) {
-  return AVATARS[name].polygons(activity, t, age);
+/** An avatar's geometry for `look` at time `t`: { polygons, points, underlay }. */
+export function avatarGeometry(name, look = {}, t = 0) {
+  const { activity = "", previous = "", age = Infinity } = look;
+  return { polygons: [], points: null, underlay: null, ...AVATARS[name].build({ activity, previous, age }, t) };
 }

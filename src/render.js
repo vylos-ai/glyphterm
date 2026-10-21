@@ -1,7 +1,7 @@
 // One frame: normalized polygons + view settings -> terminal lines.
 
 import { buildRasterizeContext, rasterize, createGlyphCamera } from "glyphcss";
-import { htmlToLines, overlayText, halfblockPixels, downsamplePixels, pixelsToLines } from "./ansi.js";
+import { htmlToLines, overlayText, halfblockPixels, downsamplePixels, pixelsToLines, fg, term } from "./ansi.js";
 
 // Each style is one glyphcss render mode + character encoding.
 export const STYLES = [
@@ -107,9 +107,11 @@ export function renderFrame({
   motion,
   supersample = SUPERSAMPLE,
   underlay = null,
+  points = null,
 }) {
   const { rotate, place } = viewTransform(yaw, pitch, motion);
   if (lines) return renderLines({ lines, style, rotate, zoom, cols, rows, color });
+  if (points) return renderPoints({ points, place, zoom, cols, rows, color });
   const viewed = polygons.map((p) => ({
     ...p,
     vertices: p.vertices.map(place),
@@ -187,6 +189,50 @@ function dim(hex, amount) {
       )
       .join("")
   );
+}
+
+// --- Points (the glyph cloud) ------------------------------------------------
+
+const FAR_GLYPH = "·";
+
+/**
+ * Draw `points` ({ at, char, color, bright }) as characters, each in the cell
+ * it projects to; nearer ones cover farther ones. Depth sets the brightness,
+ * and the farthest shrink to a dot. The style doesn't apply: the characters
+ * are the picture.
+ */
+function renderPoints({ points, place, zoom, cols, rows, color }) {
+  const scale = ((0.92 * Math.min(cols, rows * 2)) / 2) * zoom;
+  const cells = Array.from({ length: rows }, () => new Array(cols).fill(null));
+  for (const { at, char, color: hex, bright = 1 } of points) {
+    const [gx, gy, gz] = place(at);
+    // Measured glyphcss projection (see the labels in renderLines).
+    const [row, col] = [Math.floor(rows / 2 + (gx * scale) / 2), Math.floor(cols / 2 + gy * scale)];
+    if (row < 0 || row >= rows || col < 0 || col >= cols) continue;
+    if (cells[row][col] && cells[row][col].z >= gz) continue;
+    const depth = Math.min(1, Math.max(0, (gz + 1) / 2));
+    cells[row][col] = {
+      z: gz,
+      char: gz < -0.45 ? FAR_GLYPH : char,
+      hex: dim(hex ?? "#e8e4d8", Math.min(1, bright * (0.5 + 0.65 * depth))),
+    };
+  }
+  return cells.map((row) => {
+    let line = "";
+    let active = null;
+    for (const cell of row) {
+      if (!cell) {
+        line += " ";
+        continue;
+      }
+      if (color && cell.hex !== active) {
+        line += fg(cell.hex);
+        active = cell.hex;
+      }
+      line += cell.char;
+    }
+    return line + (color && active ? term.reset : "");
+  });
 }
 
 // --- Polylines (data-visualization models) -----------------------------------

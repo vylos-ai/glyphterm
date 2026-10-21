@@ -19,26 +19,27 @@ what was learned building it.
 
 ## Architecture
 
-| File                 | Role                                                                                     |
-| -------------------- | ---------------------------------------------------------------------------------------- |
-| `bin/glyphterm.js`   | CLI: argument parsing, `--once` path                                                     |
-| `src/settings.js`    | Limits, per-model default views, `parseSettings()` shared by CLI flags and scene         |
-| `src/geometry.js`    | `modelGeometry()`: loaded model → colored polygons, or polylines for the field           |
-| `src/viewer.js`      | Interactive loop: terminal setup, model loading, CPU sampler, scene-file watching        |
-| `src/state.js`       | The viewer state object and small helpers (`isField`, `accent`, `resetView`)             |
-| `src/input.js`       | Terminal input → key/mouse events → state changes; key table, returns effects            |
-| `src/scene.js`       | Scene file ⇄ state: `sceneSnapshot()`, `applyScene()`, model path resolution             |
-| `src/hud.js`         | Header, footer, caption and the full-frame composition                                   |
-| `src/render.js`      | `renderFrame()`: view transform, lighting, styles, polyline/ridgeline renderer           |
-| `src/ansi.js`        | Escape codes, glyphcss HTML → ANSI (fg and bg), `overlayText()` for labels               |
-| `src/models.js`      | Primitives, mesh-file loading (OBJ+MTL/STL/glTF/VOX), normalization                      |
-| `src/wave.js`        | Animated models: `wave` (oscilloscope) and `field` (ridgeline, demo or data)             |
-| `src/cpu.js`         | Per-core CPU load sampler (`os.cpus()`, cross-platform)                                  |
-| `src/open.js`        | `glyphterm open`: split a pane via tmux/WezTerm/kitty/Windows Terminal CLIs, else exit 3 |
-| `src/themes.js`      | Phosphor color themes, `PHOSPHOR`/`PAPER` constants, tinting                             |
-| `src/avatar.js`      | Avatar activities (motion, pose, timing), motion smoothing, the `buddy` mascot geometry  |
-| `src/core-avatar.js` | The `core` avatar: a form and color per activity, flash on change, ring, floor lines     |
-| `src/hooks.js`       | `glyphterm avatar`: avatar file, Claude Code hook event → activity, `--print-hooks`      |
+| File                  | Role                                                                                     |
+| --------------------- | ---------------------------------------------------------------------------------------- |
+| `bin/glyphterm.js`    | CLI: argument parsing, `--once` path                                                     |
+| `src/settings.js`     | Limits, per-model default views, `parseSettings()` shared by CLI flags and scene         |
+| `src/geometry.js`     | `modelGeometry()`: loaded model → colored polygons, or polylines for the field           |
+| `src/viewer.js`       | Interactive loop: terminal setup, model loading, CPU sampler, scene-file watching        |
+| `src/state.js`        | The viewer state object and small helpers (`isField`, `accent`, `resetView`)             |
+| `src/input.js`        | Terminal input → key/mouse events → state changes; key table, returns effects            |
+| `src/scene.js`        | Scene file ⇄ state: `sceneSnapshot()`, `applyScene()`, model path resolution             |
+| `src/hud.js`          | Header, footer, caption and the full-frame composition                                   |
+| `src/render.js`       | `renderFrame()`: view transform, lighting, styles, polyline/ridgeline renderer           |
+| `src/ansi.js`         | Escape codes, glyphcss HTML → ANSI (fg and bg), `overlayText()` for labels               |
+| `src/models.js`       | Primitives, mesh-file loading (OBJ+MTL/STL/glTF/VOX), normalization                      |
+| `src/wave.js`         | Animated models: `wave` (oscilloscope) and `field` (ridgeline, demo or data)             |
+| `src/cpu.js`          | Per-core CPU load sampler (`os.cpus()`, cross-platform)                                  |
+| `src/open.js`         | `glyphterm open`: split a pane via tmux/WezTerm/kitty/Windows Terminal CLIs, else exit 3 |
+| `src/themes.js`       | Phosphor color themes, `PHOSPHOR`/`PAPER` constants, tinting                             |
+| `src/avatar.js`       | Avatar activities (motion, pose, timing), motion smoothing, the `buddy` mascot geometry  |
+| `src/cloud-avatar.js` | The `cloud` avatar (default): character particles, a formation per activity, regrouping  |
+| `src/core-avatar.js`  | The `core` avatar: a form and color per activity, flash on change, ring, floor lines     |
+| `src/hooks.js`        | `glyphterm avatar`: avatar file, Claude Code hook event → activity, `--print-hooks`      |
 
 Data flow: model polygons (y-up, bounding radius 1) → `renderFrame` rotates them by
 yaw/pitch → glyphcss `rasterize()` → `<pre>` HTML → `htmlToLines` → ANSI lines → the
@@ -99,7 +100,11 @@ side channels (Konsole's D-Bus `runCommand`/`sendText` is deliberately disabled 
 default).
 
 **Avatar:** `glyphterm avatar` is the viewer on `~/.local/state/glyphterm/avatar.json`
-with an avatar model (`AVATARS` in avatar.js: `core`, the default, and `buddy`). The scene key `activity` drives it: `renderFrame({ motion })` adds
+with an avatar model (`AVATARS` in avatar.js: `cloud`, the default, `core` and `buddy`;
+each `build(look, t)` returns polygons, points and/or an underlay). The cloud is points:
+`renderFrame({ points })` projects characters by depth, ignoring the style. It is stateless:
+`look.previous` + `look.age` give each particle's flight from the old formation
+(`activityShown` in the state is what was on screen before the change). The scene key `activity` drives it: `renderFrame({ motion })` adds
 roll/scale/offset on top of yaw/pitch for any model, and the buddy (`model.posable`) is
 rebuilt every frame for the activity (`avatarLook`: activity + age, for the core's flash).
 The core moves itself (`movesItself`), so its floor stays still. Its floor is a

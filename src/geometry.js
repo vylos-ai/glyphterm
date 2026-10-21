@@ -4,7 +4,7 @@
 import { isPrimitive } from "./models.js";
 import { PAPER, PHOSPHOR, tint } from "./themes.js";
 import { wavePolygons, fieldLines, dataLines, GRADIENTS } from "./wave.js";
-import { avatarPolygons, AVATARS } from "./avatar.js";
+import { avatarGeometry } from "./avatar.js";
 
 /**
  * `theme` colors meshes and the scope trace; the field uses the gradient `stops`.
@@ -26,17 +26,20 @@ export function modelGeometry(
           amplitude: wave.amplitude ?? 1,
         })
       : fieldLines({ ...wave, time, stops });
-    return { polygons: [], lines, underlay: null };
+    return { polygons: [], lines, underlay: null, points: null };
   }
   if (model.animated) {
-    return { polygons: wavePolygons({ ...wave, time, color: color ?? PHOSPHOR }), lines: null, underlay: null };
+    return {
+      polygons: wavePolygons({ ...wave, time, color: color ?? PHOSPHOR }),
+      lines: null,
+      underlay: null,
+      points: null,
+    };
   }
   if (model.posable) {
-    return {
-      polygons: tint(avatarPolygons(model.name, look, time), color),
-      lines: null,
-      underlay: AVATARS[model.name].underlay ?? null,
-    };
+    const { polygons, points, underlay } = avatarGeometry(model.name, look, time);
+    const tinted = color && points ? points.map((p) => ({ ...p, color })) : points;
+    return { polygons: tint(polygons, color), lines: null, underlay, points: tinted };
   }
   // Primitives have no colors of their own; "original" shows them in paper white.
   return {

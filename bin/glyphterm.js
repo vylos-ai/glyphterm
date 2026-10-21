@@ -332,7 +332,7 @@ if (once) {
     sampler.stop();
     samples = { series: sampler.series };
   }
-  const { polygons, lines, underlay } = modelGeometry(loaded, {
+  const { polygons, lines, underlay, points } = modelGeometry(loaded, {
     theme: options.theme,
     stops: options.gradient.stops,
     wave: options.wave,
@@ -345,6 +345,7 @@ if (once) {
     polygons,
     lines,
     underlay,
+    points,
     style: findStyle(options.style),
     cols,
     rows,

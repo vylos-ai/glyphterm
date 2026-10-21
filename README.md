@@ -180,12 +180,18 @@ Exit codes: 0 success, 2 invalid arguments or scene, 3 `open` couldn't open a pa
 `glyphterm open avatar`):
 
 ```sh
-glyphterm avatar                  # the core: a floating polyhedron over a grid floor
+glyphterm avatar                  # the cloud: a few hundred characters floating in space
+glyphterm avatar core             # the core: a floating polyhedron over a grid floor
 glyphterm avatar buddy            # the buddy: a little computer on legs
 glyphterm avatar examples/rocket.obj   # any model, with the motions below
 ```
 
-The **core** changes its form and color with each activity, snapping to the new form with a
+The **cloud** takes a new formation for each activity, and its particles fly over from the
+old one, so it regroups rather than switching: clusters that gather and part while
+thinking, a stream flowing inward while reading, rows of code scrolling up while coding, a
+fast vortex while running, a question mark when it needs you, a scatter on an error, an
+even sphere when done, dust settling while asleep. Nearer characters are brighter; the
+farthest shrink to dots. The **core** changes its form and color with each activity, snapping to the new form with a
 flash, while a ring orbits it: thinking is a violet dodecahedron, coding a fast-spinning
 green cuboctahedron, needs-you a bouncing magenta octahedron, an error a red star, done a
 gold ball. The **buddy** acts them out with its arms, legs and the eyes on its screen. Each
@@ -238,6 +244,7 @@ mesh file / primitive ──► normalize (center, radius 1, y-up)
 - `src/open.js`: opening a pane in tmux, WezTerm, kitty or Windows Terminal
 - `src/avatar.js`: the avatar's activities, their motions, and the buddy mascot
 - `src/core-avatar.js`: the core avatar: forms, orbit ring and grid floor per activity
+- `src/cloud-avatar.js`: the cloud avatar: a particle formation per activity, regrouping between them
 - `src/hooks.js`: `glyphterm avatar`: its file, and Claude Code hook events → activities
 - `bin/glyphterm.js`: CLI
 

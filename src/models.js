@@ -6,7 +6,7 @@ import { readFile } from "node:fs/promises";
 import { extname, basename, dirname, resolve } from "node:path";
 import * as core from "@glyphcss/core";
 import { PAPER } from "./themes.js";
-import { AVATAR_NAMES, avatarPolygons } from "./avatar.js";
+import { AVATAR_NAMES, avatarGeometry } from "./avatar.js";
 
 const O = [0, 0, 0];
 
@@ -64,7 +64,7 @@ export async function loadModel(source) {
   }
   if (POSABLE.includes(source)) {
     // Built already fitted; geometry.js rebuilds it for the current activity.
-    return { name: source, posable: true, polygons: avatarPolygons(source), warnings: [] };
+    return { name: source, posable: true, polygons: avatarGeometry(source).polygons, warnings: [] };
   }
   if (isPrimitive(source)) {
     return { name: source, polygons: normalize(PRIMITIVES[source](PAPER)), warnings: [] };

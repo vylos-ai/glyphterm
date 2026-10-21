@@ -37,6 +37,7 @@ export function createState(options) {
     activity: options.activity ?? "",
     activitySince: 0,
     activityBefore: "",
+    activityShown: "",
     sceneActivity: options.activity ?? "",
     motion: null,
     message: "",

@@ -22,10 +22,13 @@ const DEFAULT_VIEW = { yaw: 30, pitch: 20, zoom: 1, spin: 40 };
 // Avatars stand still, with room to hop; the core is seen a little from above, for its floor.
 const BUDDY_VIEW = { yaw: 20, pitch: 8, zoom: 0.9, spin: 0 };
 const CORE_VIEW = { yaw: 30, pitch: 28, zoom: 1, spin: 0 };
+const CLOUD_VIEW = { yaw: 0, pitch: 10, zoom: 1, spin: 0 };
 
 /** Animated models and the avatar have their own best view. */
 export function viewDefaultsFor(model) {
-  return { wave: WAVE_VIEW, field: FIELD_VIEW, buddy: BUDDY_VIEW, core: CORE_VIEW }[model] ?? DEFAULT_VIEW;
+  return (
+    { wave: WAVE_VIEW, field: FIELD_VIEW, buddy: BUDDY_VIEW, core: CORE_VIEW, cloud: CLOUD_VIEW }[model] ?? DEFAULT_VIEW
+  );
 }
 
 const WAVE_NUMBERS = ["frequency", "amplitude", "speed", "lines"];
