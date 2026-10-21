@@ -1,5 +1,7 @@
 # glyphterm
 
+[![CI](https://github.com/vylos-ai/glyphterm/actions/workflows/ci.yml/badge.svg)](https://github.com/vylos-ai/glyphterm/actions/workflows/ci.yml)
+
 Spin 3D models in your terminal, drawn entirely with text: shaded ASCII, half-block and
 quadrant pixels, braille wireframes. It's built on [glyphcss](https://glyphcss.com)'s
 rasterizer, so no GPU, canvas, or image protocol is needed. It works in any terminal with
