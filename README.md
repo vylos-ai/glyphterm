@@ -175,16 +175,22 @@ Exit codes: 0 success, 2 invalid arguments or scene, 3 `open` couldn't open a pa
 
 ### An avatar for your coding agent
 
-`glyphterm avatar` shows the buddy, glyphterm's mascot: a little computer on legs that acts
-out what your agent is doing. Start it in a second terminal (or `glyphterm open avatar`):
+`glyphterm avatar` shows what your agent is doing. Start it in a second terminal (or
+`glyphterm open avatar`):
 
 ```sh
-glyphterm avatar                  # the buddy; any model works too: glyphterm avatar examples/rocket.obj
+glyphterm avatar                  # the core: a floating polyhedron over a grid floor
+glyphterm avatar buddy            # the buddy: a little computer on legs
+glyphterm avatar examples/rocket.obj   # any model, with the motions below
 ```
 
-Each activity has its own motion, pose and color, with a short note next to it:
+The **core** changes its form and color with each activity, snapping to the new form with a
+flash, while a ring orbits it: thinking is a violet dodecahedron, coding a fast-spinning
+green cuboctahedron, needs-you a bouncing magenta octahedron, an error a red star, done a
+gold ball. The **buddy** acts them out with its arms, legs and the eyes on its screen. Each
+activity also has a colored badge with a short note next to it:
 
-| Activity    | Shows                                 | From the Claude Code hook                    |
+| Activity    | Buddy                                 | From the Claude Code hook                    |
 | ----------- | ------------------------------------- | -------------------------------------------- |
 | `thinking`  | sways, looking up, hand on chin       | you send a prompt                            |
 | `reading`   | eyes scanning                         | Read, Grep, Glob, web fetches and searches   |
@@ -230,6 +236,7 @@ mesh file / primitive ──► normalize (center, radius 1, y-up)
   `scene.js` and `hud.js` for the parts
 - `src/open.js`: opening a pane in tmux, WezTerm, kitty or Windows Terminal
 - `src/avatar.js`: the avatar's activities, their motions, and the buddy mascot
+- `src/core-avatar.js`: the core avatar: forms, orbit ring and grid floor per activity
 - `src/hooks.js`: `glyphterm avatar`: its file, and Claude Code hook events → activities
 - `bin/glyphterm.js`: CLI
 

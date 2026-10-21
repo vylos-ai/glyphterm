@@ -7,7 +7,7 @@
   "properties": {
     "model": {
       "type": "string",
-      "description": "A primitive (torus, sphere, cube, icosahedron, dodecahedron, octahedron, cuboctahedron, football, star, great-star, cone, cylinder, pyramid, antiprism, buddy, wave, field) or a mesh file (.obj, .stl, .glb, .gltf, .vox), relative to the scene file or absolute.",
+      "description": "A primitive (torus, sphere, cube, icosahedron, dodecahedron, octahedron, cuboctahedron, football, star, great-star, cone, cylinder, pyramid, antiprism, buddy, core, wave, field) or a mesh file (.obj, .stl, .glb, .gltf, .vox), relative to the scene file or absolute.",
       "examples": [
         "torus",
         "sphere",
@@ -24,6 +24,7 @@
         "pyramid",
         "antiprism",
         "buddy",
+        "core",
         "wave",
         "field"
       ]

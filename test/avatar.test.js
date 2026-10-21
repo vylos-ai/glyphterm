@@ -16,8 +16,10 @@ import {
   currentActivity,
   activityMotion,
   smoothMotion,
-  buddyPolygons,
+  avatarPolygons,
+  AVATAR_NAMES,
 } from "../src/avatar.js";
+import { modelGeometry } from "../src/geometry.js";
 import { hookActivity, writeActivity, readActivity, avatarFile, hooksConfig, HOOK_EVENTS } from "../src/hooks.js";
 import { loadModel } from "../src/models.js";
 import { createState } from "../src/state.js";
@@ -47,19 +49,44 @@ function avatarState(activity = "") {
   return createState({ ...values, model: "buddy", fps: 30 });
 }
 
-test("every activity moves smoothly and poses the buddy within its bounds", () => {
+test("every activity moves smoothly and every avatar stays within its bounds", () => {
   for (const id of ACTIVITY_IDS) {
     const state = avatarState();
     setActivity(state, id, 0);
-    for (const t of [0, 0.3, 1.7, 2.9]) {
+    for (const t of [0, 0.1, 0.3, 1.7, 2.9]) {
       const motion = activityMotion(state, t);
       for (const value of Object.values(motion)) assert.ok(Number.isFinite(value), `${id} at ${t}`);
-      const radius = Math.max(
-        ...buddyPolygons(ACTIVITIES[id].pose, t).flatMap((p) => p.vertices.map((v) => Math.hypot(...v))),
-      );
-      assert.ok(radius > 0.8 && radius < 1.15, `${id} radius ${radius}`);
+      for (const name of AVATAR_NAMES) {
+        const polygons = avatarPolygons(name, { activity: id, age: t }, t);
+        const radius = Math.max(...polygons.flatMap((p) => p.vertices.map((v) => Math.hypot(...v))));
+        const smallest = id === "sleeping" && name === "core" ? 0.3 : 0.6;
+        assert.ok(radius > smallest && radius < 1.15, `${name} ${id} at ${t}: radius ${radius}`);
+      }
     }
   }
+});
+
+test("the core moves itself, flashes on a change, and has a floor in half-block styles", async () => {
+  const state = avatarState();
+  state.source = "core";
+  setActivity(state, "coding", 0);
+  assert.deepEqual(activityMotion(state, 1), { yaw: 0, pitch: 0, roll: 0, x: 0, y: 0, scale: 1 });
+
+  const color = (age) => avatarPolygons("core", { activity: "coding", age }, 1).at(0).color;
+  assert.equal(color(5), ACTIVITIES.coding.color);
+  assert.notEqual(color(0.05), ACTIVITIES.coding.color, "white flash right after the change");
+
+  const model = await loadModel("core");
+  const { polygons, underlay } = modelGeometry(model, { look: { activity: "waiting", age: 5 } });
+  const drawn = (frame) =>
+    frame
+      .join("")
+      .replace(/\x1b\[[0-9;]*m/g, "")
+      .replace(/ /g, "").length;
+  const base = { polygons, style: findStyle("halfblock"), cols: 60, rows: 24, pitch: 28 };
+  assert.ok(drawn(renderFrame({ ...base, underlay })) > drawn(renderFrame(base)) + 20, "the floor adds cells");
+  const plain = { ...base, style: findStyle("shade"), color: false };
+  assert.deepEqual(renderFrame({ ...plain, underlay }), renderFrame(plain), "other styles leave it out");
 });
 
 test("short activities return to what came before; a long wait turns into sleep", () => {

@@ -16,7 +16,7 @@ import { parseSettings, viewDefaultsFor, clamp, LIMITS, DATA_SOURCES, SCENE_KEYS
 import { unknownSceneKeys } from "../src/settings.js";
 import { resolveSceneModel } from "../src/scene.js";
 import { openPane, shellCommand } from "../src/open.js";
-import { ACTIVITIES, ACTIVITY_IDS } from "../src/avatar.js";
+import { ACTIVITIES, ACTIVITY_IDS, AVATAR_NAMES, DEFAULT_AVATAR } from "../src/avatar.js";
 import { avatarFile, hookActivity, writeActivity, readActivity, hooksConfig } from "../src/hooks.js";
 import { ANIMATED, POSABLE } from "../src/models.js";
 import { WAVEFORM_NAMES, GRADIENT_NAMES, WAVE_LIMITS, LINE_LIMITS } from "../src/wave.js";
@@ -67,7 +67,7 @@ Agents & scripts
                         listing every problem in the file
 
 Avatar
-  glyphterm avatar                   start the avatar viewer (model: buddy, or any model)
+  glyphterm avatar [model]           start the avatar viewer: ${AVATAR_NAMES.join(" or ")} (default: ${DEFAULT_AVATAR}), or any model
   glyphterm avatar <activity>        set what it shows: ${ACTIVITY_IDS.join(", ")}, or none
       --detail <text>   with an activity: a short note shown next to it, e.g. a file name
       --hook            read a Claude Code hook event on stdin and set the matching activity
@@ -217,7 +217,7 @@ if (avatar) {
     process.exit(0);
   }
   if (args.detail !== undefined) fail("--detail goes with an activity, e.g. glyphterm avatar coding --detail app.js");
-  positionals[0] ??= "buddy";
+  positionals[0] ??= DEFAULT_AVATAR;
   if (!args.once) args.watch = file;
 }
 if (positionals.length > 1) fail(`expected one model, got ${positionals.length}`);
@@ -332,18 +332,19 @@ if (once) {
     sampler.stop();
     samples = { series: sampler.series };
   }
-  const { polygons, lines } = modelGeometry(loaded, {
+  const { polygons, lines, underlay } = modelGeometry(loaded, {
     theme: options.theme,
     stops: options.gradient.stops,
     wave: options.wave,
     samples,
-    // A still of the avatar shows its activity's pose, without the motion.
-    pose: ACTIVITIES[options.activity]?.pose,
+    // A still of an avatar shows its activity's look, without the motion.
+    look: { activity: options.activity ?? "", age: 1 },
   });
   const frame = renderFrame({
     ...options,
     polygons,
     lines,
+    underlay,
     style: findStyle(options.style),
     cols,
     rows,

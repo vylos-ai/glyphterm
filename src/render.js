@@ -106,6 +106,7 @@ export function renderFrame({
   glow = false,
   motion,
   supersample = SUPERSAMPLE,
+  underlay = null,
 }) {
   const { rotate, place } = viewTransform(yaw, pitch, motion);
   if (lines) return renderLines({ lines, style, rotate, zoom, cols, rows, color });
@@ -135,8 +136,57 @@ export function renderFrame({
     wireframeJunctions: style.mode === "wireframe" && style.charMode === "ascii" && glyphPalette === "ascii",
     useColors: color,
   });
-  if (factor > 1) return pixelsToLines(downsamplePixels(halfblockPixels(rasterize(ctx)), factor));
+  if (factor > 1 || (underlay && style.charMode === "halfblock" && color)) {
+    const pixels = halfblockPixels(rasterize(ctx));
+    if (underlay) drawUnderlay(pixels, underlay, place, fit * zoom, factor);
+    return pixelsToLines(factor > 1 ? downsamplePixels(pixels, factor) : pixels);
+  }
   return htmlToLines(rasterize(ctx), { color });
+}
+
+/**
+ * Draw `segments` ({ from, to, color } in model space) into the empty pixels
+ * of a half-block frame, behind everything rendered: a floor grid, say.
+ * glyphcss drops thin polygons seen edge-on, but lines drawn here stay whole,
+ * and supersampling smooths them. Lines are `width` pixels wide, so they
+ * keep one pixel after downsampling by that factor. Farther parts are dimmer.
+ */
+function drawUnderlay(pixels, segments, place, scale, width = 1) {
+  const [rows, cols] = [pixels.length, pixels[0]?.length ?? 0];
+  // What the rasterizer drew; the underlay only fills in around it.
+  const covered = pixels.map((row) => row.map(Boolean));
+  // Measured glyphcss projection (see the labels in renderLines), in pixels: two per cell row.
+  const project = ([gx, gy, gz]) => [cols / 2 + gy * scale, rows / 2 + gx * scale, gz];
+  for (const { from, to, color } of segments) {
+    const [a, b] = [project(place(from)), project(place(to))];
+    const steps = Math.ceil(Math.max(Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1]))) + 1;
+    for (let k = 0; k <= steps; k++) {
+      const t = k / steps;
+      const [x, y, z] = a.map((v, i) => v + (b[i] - v) * t);
+      const shade = dim(color, Math.min(1, Math.max(0.25, 0.6 + z * 0.5)));
+      const [x0, y0] = [Math.round(x - width / 2), Math.round(y - width / 2)];
+      for (let py = Math.max(0, y0); py < Math.min(rows, y0 + width); py++) {
+        for (let px = Math.max(0, x0); px < Math.min(cols, x0 + width); px++) {
+          if (!covered[py][px]) pixels[py][px] = shade;
+        }
+      }
+    }
+  }
+}
+
+/** `hex` darkened to `amount` (0..1) of its brightness. */
+function dim(hex, amount) {
+  const n = parseInt(hex.slice(1), 16);
+  return (
+    "#" +
+    [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+      .map((c) =>
+        Math.round(c * amount)
+          .toString(16)
+          .padStart(2, "0"),
+      )
+      .join("")
+  );
 }
 
 // --- Polylines (data-visualization models) -----------------------------------

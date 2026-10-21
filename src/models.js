@@ -6,7 +6,7 @@ import { readFile } from "node:fs/promises";
 import { extname, basename, dirname, resolve } from "node:path";
 import * as core from "@glyphcss/core";
 import { PAPER } from "./themes.js";
-import { buddyPolygons } from "./avatar.js";
+import { AVATAR_NAMES, avatarPolygons } from "./avatar.js";
 
 const O = [0, 0, 0];
 
@@ -31,8 +31,8 @@ export const PRIMITIVES = {
 // Animated models are rebuilt every frame instead of being loaded once.
 export const ANIMATED = ["wave", "field"];
 
-// The avatar mascot changes its pose with the activity (see avatar.js) and has colors of its own.
-export const POSABLE = ["buddy"];
+// Avatar models change with the activity (see avatar.js) and have colors of their own.
+export const POSABLE = AVATAR_NAMES;
 
 export const PRIMITIVE_NAMES = [...Object.keys(PRIMITIVES), ...POSABLE, ...ANIMATED];
 
@@ -63,8 +63,8 @@ export async function loadModel(source) {
     return { name: source, animated: true, polygons: [], warnings: [] };
   }
   if (POSABLE.includes(source)) {
-    // Built already fitted; geometry.js rebuilds it in the current pose.
-    return { name: source, posable: true, polygons: buddyPolygons(), warnings: [] };
+    // Built already fitted; geometry.js rebuilds it for the current activity.
+    return { name: source, posable: true, polygons: avatarPolygons(source), warnings: [] };
   }
   if (isPrimitive(source)) {
     return { name: source, polygons: normalize(PRIMITIVES[source](PAPER)), warnings: [] };

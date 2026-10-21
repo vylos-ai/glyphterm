@@ -4,17 +4,17 @@
 import { isPrimitive } from "./models.js";
 import { PAPER, PHOSPHOR, tint } from "./themes.js";
 import { wavePolygons, fieldLines, dataLines, GRADIENTS } from "./wave.js";
-import { buddyPolygons } from "./avatar.js";
+import { avatarPolygons, AVATARS } from "./avatar.js";
 
 /**
  * `theme` colors meshes and the scope trace; the field uses the gradient `stops`.
  * For the field, `samples` ({ series, history?, progress? }) switches from the
- * demo signals to real data. Animated models depend on `time`, the avatar
- * mascot also on its `pose` (see avatar.js).
+ * demo signals to real data. Animated models depend on `time`, avatar
+ * models also on their `look` ({ activity, age }, see avatar.js).
  */
 export function modelGeometry(
   model,
-  { theme, stops = GRADIENTS.synthwave, wave = {}, time = 0, samples = null, pose } = {},
+  { theme, stops = GRADIENTS.synthwave, wave = {}, time = 0, samples = null, look } = {},
 ) {
   const color = theme?.color ?? null;
   if (model.animated && model.name === "field") {
@@ -26,12 +26,22 @@ export function modelGeometry(
           amplitude: wave.amplitude ?? 1,
         })
       : fieldLines({ ...wave, time, stops });
-    return { polygons: [], lines };
+    return { polygons: [], lines, underlay: null };
   }
   if (model.animated) {
-    return { polygons: wavePolygons({ ...wave, time, color: color ?? PHOSPHOR }), lines: null };
+    return { polygons: wavePolygons({ ...wave, time, color: color ?? PHOSPHOR }), lines: null, underlay: null };
   }
-  if (model.posable) return { polygons: tint(buddyPolygons(pose, time), color), lines: null };
+  if (model.posable) {
+    return {
+      polygons: tint(avatarPolygons(model.name, look, time), color),
+      lines: null,
+      underlay: AVATARS[model.name].underlay ?? null,
+    };
+  }
   // Primitives have no colors of their own; "original" shows them in paper white.
-  return { polygons: tint(model.polygons, color ?? (isPrimitive(model.name) ? PAPER : null)), lines: null };
+  return {
+    polygons: tint(model.polygons, color ?? (isPrimitive(model.name) ? PAPER : null)),
+    lines: null,
+    underlay: null,
+  };
 }

@@ -19,25 +19,26 @@ what was learned building it.
 
 ## Architecture
 
-| File               | Role                                                                                     |
-| ------------------ | ---------------------------------------------------------------------------------------- |
-| `bin/glyphterm.js` | CLI: argument parsing, `--once` path                                                     |
-| `src/settings.js`  | Limits, per-model default views, `parseSettings()` shared by CLI flags and scene         |
-| `src/geometry.js`  | `modelGeometry()`: loaded model → colored polygons, or polylines for the field           |
-| `src/viewer.js`    | Interactive loop: terminal setup, model loading, CPU sampler, scene-file watching        |
-| `src/state.js`     | The viewer state object and small helpers (`isField`, `accent`, `resetView`)             |
-| `src/input.js`     | Terminal input → key/mouse events → state changes; key table, returns effects            |
-| `src/scene.js`     | Scene file ⇄ state: `sceneSnapshot()`, `applyScene()`, model path resolution             |
-| `src/hud.js`       | Header, footer, caption and the full-frame composition                                   |
-| `src/render.js`    | `renderFrame()`: view transform, lighting, styles, polyline/ridgeline renderer           |
-| `src/ansi.js`      | Escape codes, glyphcss HTML → ANSI (fg and bg), `overlayText()` for labels               |
-| `src/models.js`    | Primitives, mesh-file loading (OBJ+MTL/STL/glTF/VOX), normalization                      |
-| `src/wave.js`      | Animated models: `wave` (oscilloscope) and `field` (ridgeline, demo or data)             |
-| `src/cpu.js`       | Per-core CPU load sampler (`os.cpus()`, cross-platform)                                  |
-| `src/open.js`      | `glyphterm open`: split a pane via tmux/WezTerm/kitty/Windows Terminal CLIs, else exit 3 |
-| `src/themes.js`    | Phosphor color themes, `PHOSPHOR`/`PAPER` constants, tinting                             |
-| `src/avatar.js`    | Avatar activities (motion, pose, timing), motion smoothing, the `buddy` mascot geometry  |
-| `src/hooks.js`     | `glyphterm avatar`: avatar file, Claude Code hook event → activity, `--print-hooks`      |
+| File                 | Role                                                                                     |
+| -------------------- | ---------------------------------------------------------------------------------------- |
+| `bin/glyphterm.js`   | CLI: argument parsing, `--once` path                                                     |
+| `src/settings.js`    | Limits, per-model default views, `parseSettings()` shared by CLI flags and scene         |
+| `src/geometry.js`    | `modelGeometry()`: loaded model → colored polygons, or polylines for the field           |
+| `src/viewer.js`      | Interactive loop: terminal setup, model loading, CPU sampler, scene-file watching        |
+| `src/state.js`       | The viewer state object and small helpers (`isField`, `accent`, `resetView`)             |
+| `src/input.js`       | Terminal input → key/mouse events → state changes; key table, returns effects            |
+| `src/scene.js`       | Scene file ⇄ state: `sceneSnapshot()`, `applyScene()`, model path resolution             |
+| `src/hud.js`         | Header, footer, caption and the full-frame composition                                   |
+| `src/render.js`      | `renderFrame()`: view transform, lighting, styles, polyline/ridgeline renderer           |
+| `src/ansi.js`        | Escape codes, glyphcss HTML → ANSI (fg and bg), `overlayText()` for labels               |
+| `src/models.js`      | Primitives, mesh-file loading (OBJ+MTL/STL/glTF/VOX), normalization                      |
+| `src/wave.js`        | Animated models: `wave` (oscilloscope) and `field` (ridgeline, demo or data)             |
+| `src/cpu.js`         | Per-core CPU load sampler (`os.cpus()`, cross-platform)                                  |
+| `src/open.js`        | `glyphterm open`: split a pane via tmux/WezTerm/kitty/Windows Terminal CLIs, else exit 3 |
+| `src/themes.js`      | Phosphor color themes, `PHOSPHOR`/`PAPER` constants, tinting                             |
+| `src/avatar.js`      | Avatar activities (motion, pose, timing), motion smoothing, the `buddy` mascot geometry  |
+| `src/core-avatar.js` | The `core` avatar: a form and color per activity, flash on change, ring, floor lines     |
+| `src/hooks.js`       | `glyphterm avatar`: avatar file, Claude Code hook event → activity, `--print-hooks`      |
 
 Data flow: model polygons (y-up, bounding radius 1) → `renderFrame` rotates them by
 yaw/pitch → glyphcss `rasterize()` → `<pre>` HTML → `htmlToLines` → ANSI lines → the
@@ -98,9 +99,13 @@ side channels (Konsole's D-Bus `runCommand`/`sendText` is deliberately disabled 
 default).
 
 **Avatar:** `glyphterm avatar` is the viewer on `~/.local/state/glyphterm/avatar.json`
-with the `buddy` model. The scene key `activity` drives it: `renderFrame({ motion })` adds
+with an avatar model (`AVATARS` in avatar.js: `core`, the default, and `buddy`). The scene key `activity` drives it: `renderFrame({ motion })` adds
 roll/scale/offset on top of yaw/pitch for any model, and the buddy (`model.posable`) is
-rebuilt every frame in the activity's pose. `error`/`done` are short and return by
+rebuilt every frame for the activity (`avatarLook`: activity + age, for the core's flash).
+The core moves itself (`movesItself`), so its floor stays still. Its floor is a
+`renderFrame({ underlay })`: 3D segments drawn into the empty pixels of the half-block
+frame, `factor` pixels wide so they survive downsampling; glyphcss drops thin polygons seen
+edge-on, so a floor of thin quads only came out as dots. `error`/`done` are short and return by
 themselves (state only; the file keeps the word, and `sceneActivity` stops other edits from
 replaying it). `waiting` shows as `sleeping` after `SLEEP_AFTER`. Hooks call
 `glyphterm avatar --hook` (async; must print nothing and always exit 0, since

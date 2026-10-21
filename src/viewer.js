@@ -13,7 +13,7 @@ import { createState, isAnimated, flash } from "./state.js";
 import { sceneSnapshot, sceneModelName, applyScene, sceneModel, statusPath } from "./scene.js";
 import { parseInput, handleKey, handleMouse } from "./input.js";
 import { composeFrame, sceneRows } from "./hud.js";
-import { activityMotion, buddyPose, smoothMotion } from "./avatar.js";
+import { activityMotion, avatarLook, smoothMotion } from "./avatar.js";
 
 export async function runViewer(options) {
   const out = process.stdout;
@@ -66,7 +66,7 @@ export async function runViewer(options) {
         wave: state.wave,
         time: state.time,
         samples,
-        pose: state.model.posable ? buddyPose(state) : undefined,
+        look: state.model.posable ? avatarLook(state) : undefined,
       }),
     );
   }
@@ -161,6 +161,7 @@ export async function runViewer(options) {
           pitch: state.pitch + (state.motion?.pitch ?? 0),
           zoom: state.zoom,
           motion: state.motion,
+          underlay: state.underlay,
           glow: isAnimated(state),
           cols,
           rows: sceneRows(state, rows),
