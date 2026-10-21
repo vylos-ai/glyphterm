@@ -7,6 +7,7 @@ import { isPrimitive } from "./models.js";
 import { parseSettings, unknownSceneKeys } from "./settings.js";
 import { clampField } from "./wave.js";
 import { isAnimated, isField } from "./state.js";
+import { setActivity } from "./avatar.js";
 
 /**
  * How a scene file names `source`: primitives by name, files relative to the
@@ -31,6 +32,7 @@ export function sceneSnapshot(state, scenePath) {
     spin: state.spin,
     paused: state.paused,
     caption: state.caption,
+    ...(state.activity && { activity: state.activity }),
     ...(isAnimated(state) && { wave: { ...state.wave } }),
     ...(isField(state) && {
       gradient: state.gradient.name === "custom" ? state.gradient.stops : state.gradient.name,
@@ -46,9 +48,14 @@ export function sceneSnapshot(state, scenePath) {
 export function applyScene(state, scene) {
   // Parsed settings use the state's own names, so they apply directly.
   const { values, problems } = parseSettings(scene);
-  const { wave, ...plain } = values;
+  const { wave, activity, ...plain } = values;
   Object.assign(state, plain);
   if (wave) state.wave = clampField({ ...state.wave, ...wave });
+  // Other edits to the file leave a running activity alone.
+  if (activity !== undefined && activity !== state.sceneActivity) {
+    state.sceneActivity = activity;
+    setActivity(state, activity);
+  }
   return [...problems, ...unknownSceneKeys(scene)];
 }
 

@@ -3,6 +3,7 @@
 import { term, fg, bg, visibleLength } from "./ansi.js";
 import { findStyle } from "./render.js";
 import { isAnimated, isField, accent } from "./state.js";
+import { ACTIVITIES, currentActivity } from "./avatar.js";
 
 const HEADER_BG = "#141414";
 const TEXT = "#d0d0d0";
@@ -10,9 +11,9 @@ const DIM = "#7a7a7a";
 const ERROR = "#ff5555";
 const TITLE = " ▓▒░ GLYPHTERM ░▒▓ ";
 
-/** A full-width bar of `[text, color]` segments, truncated to fit and padded with the background. */
+/** A full-width bar of `[text, color]` segments, truncated to fit and padded with the background, if any. */
 function bar(segments, cols, background) {
-  let line = bg(background);
+  let line = background ? bg(background) : "";
   let used = 0;
   for (const [text, color] of segments) {
     if (used >= cols) break;
@@ -80,8 +81,20 @@ export function footer(state, cols, cpu) {
   return bar([[` ${hints}`, DIM]], cols, HEADER_BG);
 }
 
-/** Rows left for the scene between the header, the optional caption and the footer. */
-export const sceneRows = (state, rows) => Math.max(1, rows - 2 - (state.caption ? 1 : 0));
+/** The avatar's activity as a badge, then the caption; null when there is neither. */
+export function captionLine(state, cols) {
+  const activity = ACTIVITIES[currentActivity(state)];
+  if (!activity && !state.caption) return null;
+  const segments = [];
+  if (activity) segments.push([` ● ${activity.label.toUpperCase()} `, activity.color]);
+  if (state.caption) segments.push([` » ${state.caption}`, activity ? TEXT : accent(state)]);
+  return bar(segments, cols);
+}
+
+const hasCaptionLine = (state) => Boolean(state.caption || state.activity);
+
+/** Rows left for the scene between the header, the optional caption line and the footer. */
+export const sceneRows = (state, rows) => Math.max(1, rows - 2 - (hasCaptionLine(state) ? 1 : 0));
 
 /** The whole screen as one write, painted at once with synchronized output. */
 export function composeFrame(state, scene, cols, rows, cpu) {
@@ -90,9 +103,6 @@ export function composeFrame(state, scene, cols, rows, cpu) {
     const line = scene[r] ?? "";
     frame += term.moveTo(r + 2, 1) + line + term.reset + (visibleLength(line) < cols ? term.clearToEol : "");
   }
-  if (state.caption) {
-    const text = [...` » ${state.caption}`].slice(0, cols).join("");
-    frame += term.moveTo(rows - 1, 1) + fg(accent(state)) + text + term.reset + term.clearToEol;
-  }
+  if (hasCaptionLine(state)) frame += term.moveTo(rows - 1, 1) + (captionLine(state, cols) ?? term.clearToEol);
   return frame + term.moveTo(rows, 1) + footer(state, cols, cpu) + term.syncEnd;
 }

@@ -6,6 +6,7 @@ import { readFile } from "node:fs/promises";
 import { extname, basename, dirname, resolve } from "node:path";
 import * as core from "@glyphcss/core";
 import { PAPER } from "./themes.js";
+import { buddyPolygons } from "./avatar.js";
 
 const O = [0, 0, 0];
 
@@ -30,7 +31,10 @@ export const PRIMITIVES = {
 // Animated models are rebuilt every frame instead of being loaded once.
 export const ANIMATED = ["wave", "field"];
 
-export const PRIMITIVE_NAMES = [...Object.keys(PRIMITIVES), ...ANIMATED];
+// The avatar mascot changes its pose with the activity (see avatar.js) and has colors of its own.
+export const POSABLE = ["buddy"];
+
+export const PRIMITIVE_NAMES = [...Object.keys(PRIMITIVES), ...POSABLE, ...ANIMATED];
 
 const FILE_PARSERS = {
   ".obj": async (path) => {
@@ -49,7 +53,7 @@ const FILE_PARSERS = {
 export const SUPPORTED_EXTENSIONS = Object.keys(FILE_PARSERS);
 
 export function isPrimitive(name) {
-  return Object.hasOwn(PRIMITIVES, name) || ANIMATED.includes(name);
+  return Object.hasOwn(PRIMITIVES, name) || POSABLE.includes(name) || ANIMATED.includes(name);
 }
 
 /** Load a model by primitive name or file path. Colors are applied later (see themes.js). */
@@ -57,6 +61,10 @@ export async function loadModel(source) {
   if (ANIMATED.includes(source)) {
     // Animated models are rebuilt every frame (see geometry.js).
     return { name: source, animated: true, polygons: [], warnings: [] };
+  }
+  if (POSABLE.includes(source)) {
+    // Built already fitted; geometry.js rebuilds it in the current pose.
+    return { name: source, posable: true, polygons: buddyPolygons(), warnings: [] };
   }
   if (isPrimitive(source)) {
     return { name: source, polygons: normalize(PRIMITIVES[source](PAPER)), warnings: [] };

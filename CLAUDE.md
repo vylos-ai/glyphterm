@@ -36,6 +36,8 @@ what was learned building it.
 | `src/cpu.js`       | Per-core CPU load sampler (`os.cpus()`, cross-platform)                                  |
 | `src/open.js`      | `glyphterm open`: split a pane via tmux/WezTerm/kitty/Windows Terminal CLIs, else exit 3 |
 | `src/themes.js`    | Phosphor color themes, `PHOSPHOR`/`PAPER` constants, tinting                             |
+| `src/avatar.js`    | Avatar activities (motion, pose, timing), motion smoothing, the `buddy` mascot geometry  |
+| `src/hooks.js`     | `glyphterm avatar`: avatar file, Claude Code hook event → activity, `--print-hooks`      |
 
 Data flow: model polygons (y-up, bounding radius 1) → `renderFrame` rotates them by
 yaw/pitch → glyphcss `rasterize()` → `<pre>` HTML → `htmlToLines` → ANSI lines → the
@@ -89,6 +91,16 @@ JSON Schema, and `glyphterm open`. Exit codes: 2 invalid input, 3 no supported w
 a pane. `open` must only use a terminal's documented CLI. Never drive terminals through
 side channels (Konsole's D-Bus `runCommand`/`sendText` is deliberately disabled by
 default).
+
+**Avatar:** `glyphterm avatar` is the viewer on `~/.local/state/glyphterm/avatar.json`
+with the `buddy` model. The scene key `activity` drives it: `renderFrame({ motion })` adds
+roll/scale/offset on top of yaw/pitch for any model, and the buddy (`model.posable`) is
+rebuilt every frame in the activity's pose. `error`/`done` are short and return by
+themselves (state only; the file keeps the word, and `sceneActivity` stops other edits from
+replaying it). `waiting` shows as `sleeping` after `SLEEP_AFTER`. Hooks call
+`glyphterm avatar --hook` (async; must print nothing and always exit 0, since
+UserPromptSubmit stdout would go into the agent's context). Check poses visually with a
+pose sheet (render every activity to PNG); `--once --plain` can't show eyes on the screen.
 
 The viewer keeps file model paths absolute; scene files name them relative to the scene
 file when they sit below it (`sceneModelName`).

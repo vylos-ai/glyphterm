@@ -4,6 +4,7 @@
 import { STYLE_IDS, PALETTES } from "./render.js";
 import { THEME_NAMES, resolveTheme } from "./themes.js";
 import { WAVEFORM_NAMES, GRADIENT_NAMES, WAVE_VIEW, FIELD_VIEW, resolveGradient } from "./wave.js";
+import { ACTIVITY_IDS } from "./avatar.js";
 
 export const LIMITS = {
   pitch: [-89, 89],
@@ -18,10 +19,12 @@ export const clamp = (value, [min, max]) => Math.max(min, Math.min(max, value));
 export const DATA_SOURCES = ["demo", "cpu"];
 
 const DEFAULT_VIEW = { yaw: 30, pitch: 20, zoom: 1, spin: 40 };
+// The avatar stands still, turned a little, with room to hop.
+const AVATAR_VIEW = { yaw: 20, pitch: 8, zoom: 0.9, spin: 0 };
 
-/** Animated models have their own best view. */
+/** Animated models and the avatar have their own best view. */
 export function viewDefaultsFor(model) {
-  return { wave: WAVE_VIEW, field: FIELD_VIEW }[model] ?? DEFAULT_VIEW;
+  return { wave: WAVE_VIEW, field: FIELD_VIEW, buddy: AVATAR_VIEW }[model] ?? DEFAULT_VIEW;
 }
 
 const WAVE_NUMBERS = ["frequency", "amplitude", "speed", "lines"];
@@ -38,6 +41,7 @@ export const SCENE_KEYS = [
   "spin",
   "paused",
   "caption",
+  "activity",
   "wave",
   "gradient",
   "data",
@@ -107,6 +111,8 @@ export function parseSettings(input) {
   }
   if (typeIs("paused", input.paused, "boolean")) values.paused = input.paused;
   if (typeIs("caption", input.caption, "string")) values.caption = input.caption;
+  // "" clears the activity.
+  pick("activity", (id) => id === "" || ACTIVITY_IDS.includes(id), `${ACTIVITY_IDS.join(", ")}, or "" for none`);
 
   // Wave settings are merged into the current ones and clamped there (see clampField).
   if (typeIs("wave", input.wave, "object")) {

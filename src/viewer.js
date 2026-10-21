@@ -13,6 +13,7 @@ import { createState, isAnimated, flash } from "./state.js";
 import { sceneSnapshot, sceneModelName, applyScene, sceneModel, statusPath } from "./scene.js";
 import { parseInput, handleKey, handleMouse } from "./input.js";
 import { composeFrame, sceneRows } from "./hud.js";
+import { activityMotion, buddyPose, smoothMotion } from "./avatar.js";
 
 export async function runViewer(options) {
   const out = process.stdout;
@@ -47,7 +48,7 @@ export async function runViewer(options) {
     }
   }
 
-  // Static models only change with the color; animated ones every frame.
+  // Static models only change with the color; animated and posable ones every frame.
   function refreshGeometry() {
     if (!state.model) return;
     syncSampler();
@@ -65,6 +66,7 @@ export async function runViewer(options) {
         wave: state.wave,
         time: state.time,
         samples,
+        pose: state.model.posable ? buddyPose(state) : undefined,
       }),
     );
   }
@@ -83,7 +85,8 @@ export async function runViewer(options) {
     }
     const problems = applyScene(state, scene);
     if (problems.length) flash(state, `scene file: ${problems.join(", ")}`, true);
-    else flash(state, "scene updated");
+    // The avatar changes all the time; its caption line says what's new.
+    else if (!options.avatar) flash(state, "scene updated");
 
     const source = sceneModel(state, scene, watchPath);
     const loadError = source ? await setModel(source) : refreshGeometry();
@@ -115,6 +118,8 @@ export async function runViewer(options) {
   // current view. Our own writes are ignored by the watcher via `lastWritten`.
   let lastWritten = "";
   function writeScene() {
+    // What the file says now is the activity that runs (a short one may have ended).
+    state.sceneActivity = state.activity;
     lastWritten = JSON.stringify(sceneSnapshot(state, watchPath), null, 2) + "\n";
     try {
       writeFileSync(watchPath, lastWritten);
@@ -152,9 +157,10 @@ export async function runViewer(options) {
           lines: state.lines,
           style: findStyle(state.style),
           palette: state.palette,
-          yaw: state.yaw,
-          pitch: state.pitch,
+          yaw: state.yaw + (state.motion?.yaw ?? 0),
+          pitch: state.pitch + (state.motion?.pitch ?? 0),
           zoom: state.zoom,
+          motion: state.motion,
           glow: isAnimated(state),
           cols,
           rows: sceneRows(state, rows),
@@ -216,7 +222,7 @@ export async function runViewer(options) {
       await loadScene();
     } else {
       writeScene();
-      flash(state, `created scene file ${options.watch}`);
+      if (!options.avatar) flash(state, `created scene file ${options.watch}`);
       writeStatus([]);
     }
     watchFile(watchPath, { interval: 200 }, () => {
@@ -242,7 +248,8 @@ export async function runViewer(options) {
     last = now;
     if (!state.paused && !state.drag) state.yaw += state.spin * dt;
     if (!state.paused) state.time += dt;
-    if (isAnimated(state)) refreshGeometry();
+    state.motion = smoothMotion(state.motion, activityMotion(state), dt);
+    if (isAnimated(state) || state.model?.posable) refreshGeometry();
     state.fps = state.fps ? state.fps * 0.9 + (1 / Math.max(dt, 1e-3)) * 0.1 : options.fps;
     draw();
     timer = setTimeout(tick, Math.max(0, frameMs - (performance.now() - now)));

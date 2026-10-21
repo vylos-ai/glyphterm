@@ -9,6 +9,7 @@ import { THEME_NAMES } from "../src/themes.js";
 import { GRADIENT_NAMES, WAVEFORM_NAMES, WAVE_LIMITS, LINE_LIMITS } from "../src/wave.js";
 import { LIMITS, DATA_SOURCES } from "../src/settings.js";
 import { PRIMITIVE_NAMES, SUPPORTED_EXTENSIONS } from "../src/models.js";
+import { ACTIVITY_IDS } from "../src/avatar.js";
 
 export const SCHEMA_FILE = fileURLToPath(new URL("../schema/scene.schema.json", import.meta.url));
 
@@ -50,6 +51,12 @@ export function sceneSchema() {
       spin: range(LIMITS.spin, "Auto-rotation in degrees per second; 0 stops it."),
       paused: { type: "boolean", description: "Pauses spinning and animation." },
       caption: { type: "string", description: "A line of text under the scene; empty hides it." },
+      activity: {
+        enum: [...ACTIVITY_IDS, ""],
+        description:
+          "What the avatar shows (glyphterm avatar): a motion for any model, plus a pose for the buddy. " +
+          'error and done are short and return by themselves; "" clears it.',
+      },
       wave: {
         type: "object",
         description: "Settings of the animated models wave and field.",

@@ -7,7 +7,7 @@
   "properties": {
     "model": {
       "type": "string",
-      "description": "A primitive (torus, sphere, cube, icosahedron, dodecahedron, octahedron, cuboctahedron, football, star, great-star, cone, cylinder, pyramid, antiprism, wave, field) or a mesh file (.obj, .stl, .glb, .gltf, .vox), relative to the scene file or absolute.",
+      "description": "A primitive (torus, sphere, cube, icosahedron, dodecahedron, octahedron, cuboctahedron, football, star, great-star, cone, cylinder, pyramid, antiprism, buddy, wave, field) or a mesh file (.obj, .stl, .glb, .gltf, .vox), relative to the scene file or absolute.",
       "examples": [
         "torus",
         "sphere",
@@ -23,6 +23,7 @@
         "cylinder",
         "pyramid",
         "antiprism",
+        "buddy",
         "wave",
         "field"
       ]
@@ -107,6 +108,22 @@
     "caption": {
       "type": "string",
       "description": "A line of text under the scene; empty hides it."
+    },
+    "activity": {
+      "enum": [
+        "thinking",
+        "reading",
+        "coding",
+        "writing",
+        "running",
+        "needs-you",
+        "waiting",
+        "error",
+        "done",
+        "sleeping",
+        ""
+      ],
+      "description": "What the avatar shows (glyphterm avatar): a motion for any model, plus a pose for the buddy. error and done are short and return by themselves; \"\" clears it."
     },
     "wave": {
       "type": "object",

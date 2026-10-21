@@ -31,6 +31,14 @@ export function createState(options) {
     // What the field shows: "demo" signals or live "cpu" load per core.
     data: options.data,
     caption: "",
+    // The avatar's activity (see avatar.js), when it started (in `time`), and
+    // the one a short-lived activity returns to. `sceneActivity` is the scene
+    // file's last word, so only a new one restarts an activity.
+    activity: options.activity ?? "",
+    activitySince: 0,
+    activityBefore: "",
+    sceneActivity: options.activity ?? "",
+    motion: null,
     message: "",
     messageIsError: false,
     fps: 0,

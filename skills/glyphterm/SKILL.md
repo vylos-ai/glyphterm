@@ -98,6 +98,22 @@ Useful scene edits:
 - `"style": "halfblock"` is the most detailed in color, `braille` is fine
   line art, and `xray` shows hidden edges.
 
+## The avatar
+
+`glyphterm avatar` shows a mascot that acts out what a coding agent does
+(thinking, reading, coding, writing, running, needs-you, waiting, error,
+done, sleeping). Usually Claude Code hooks set these by themselves
+(`glyphterm avatar --print-hooks` prints the settings; only add them when
+the user asks). Then don't set routine activities yourself; they would be
+overwritten anyway. Two are worth a call of your own:
+
+```sh
+glyphterm avatar done --detail "tests pass"   # after finishing something the user asked for
+glyphterm avatar error --detail "build broke" # when you're stuck
+```
+
+These are silent and exit 0. Unknown activities exit 2.
+
 ## Animated models
 
 - **`wave`:** an oscilloscope. Its trace is set in `wave`: `waveform`,

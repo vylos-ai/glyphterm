@@ -4,13 +4,18 @@
 import { isPrimitive } from "./models.js";
 import { PAPER, PHOSPHOR, tint } from "./themes.js";
 import { wavePolygons, fieldLines, dataLines, GRADIENTS } from "./wave.js";
+import { buddyPolygons } from "./avatar.js";
 
 /**
  * `theme` colors meshes and the scope trace; the field uses the gradient `stops`.
  * For the field, `samples` ({ series, history?, progress? }) switches from the
- * demo signals to real data. Animated models depend on `time`.
+ * demo signals to real data. Animated models depend on `time`, the avatar
+ * mascot also on its `pose` (see avatar.js).
  */
-export function modelGeometry(model, { theme, stops = GRADIENTS.synthwave, wave = {}, time = 0, samples = null } = {}) {
+export function modelGeometry(
+  model,
+  { theme, stops = GRADIENTS.synthwave, wave = {}, time = 0, samples = null, pose } = {},
+) {
   const color = theme?.color ?? null;
   if (model.animated && model.name === "field") {
     const lines = samples
@@ -26,6 +31,7 @@ export function modelGeometry(model, { theme, stops = GRADIENTS.synthwave, wave 
   if (model.animated) {
     return { polygons: wavePolygons({ ...wave, time, color: color ?? PHOSPHOR }), lines: null };
   }
+  if (model.posable) return { polygons: tint(buddyPolygons(pose, time), color), lines: null };
   // Primitives have no colors of their own; "original" shows them in paper white.
   return { polygons: tint(model.polygons, color ?? (isPrimitive(model.name) ? PAPER : null)), lines: null };
 }

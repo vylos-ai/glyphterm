@@ -60,15 +60,27 @@ function unit(v) {
 /**
  * Model space is the usual y-up / z-toward-viewer convention (OBJ, glTF).
  * `yaw` spins around the vertical axis, `pitch` tips the top toward the viewer.
+ * `motion` (an avatar's, see avatar.js) then rolls the model in the screen
+ * plane, scales it and moves it by `x`/`y` model units. Returns the transform
+ * for points and the one for normals, which only rotates.
  */
-function viewTransform(yawDeg, pitchDeg) {
+function viewTransform(yawDeg, pitchDeg, { roll = 0, scale = 1, x: dx = 0, y: dy = 0 } = {}) {
   const a = (yawDeg * Math.PI) / 180;
   const b = (pitchDeg * Math.PI) / 180;
-  const [ca, sa, cb, sb] = [Math.cos(a), Math.sin(a), Math.cos(b), Math.sin(b)];
-  return ([x, y, z]) => {
+  const r = (roll * Math.PI) / 180;
+  const [ca, sa, cb, sb, cr, sr] = [Math.cos(a), Math.sin(a), Math.cos(b), Math.sin(b), Math.cos(r), Math.sin(r)];
+  const view = ([x, y, z]) => {
     const x1 = x * ca + z * sa;
     const z1 = -x * sa + z * ca;
-    return toGlyph([x1, y * cb - z1 * sb, y * sb + z1 * cb]);
+    const y2 = y * cb - z1 * sb;
+    return [x1 * cr - y2 * sr, x1 * sr + y2 * cr, y * sb + z1 * cb];
+  };
+  return {
+    rotate: (v) => toGlyph(view(v)),
+    place: (v) => {
+      const [x, y, z] = view(v);
+      return toGlyph([x * scale + dx, y * scale + dy, z * scale]);
+    },
   };
 }
 
@@ -89,12 +101,13 @@ export function renderFrame({
   rows,
   color = true,
   glow = false,
+  motion,
 }) {
-  const rotate = viewTransform(yaw, pitch);
+  const { rotate, place } = viewTransform(yaw, pitch, motion);
   if (lines) return renderLines({ lines, style, rotate, zoom, cols, rows, color });
   const viewed = polygons.map((p) => ({
     ...p,
-    vertices: p.vertices.map(rotate),
+    vertices: p.vertices.map(place),
     shadingNormal: p.shadingNormal && rotate(p.shadingNormal),
   }));
   // The decorative glyphcss default reads poorly for wireframes; plain ASCII

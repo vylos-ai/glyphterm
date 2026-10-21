@@ -15,8 +15,10 @@ import { modelGeometry } from "../src/geometry.js";
 import { parseSettings, viewDefaultsFor, clamp, LIMITS, DATA_SOURCES, SCENE_KEYS } from "../src/settings.js";
 import { unknownSceneKeys } from "../src/settings.js";
 import { resolveSceneModel } from "../src/scene.js";
-import { openPane } from "../src/open.js";
-import { ANIMATED } from "../src/models.js";
+import { openPane, shellCommand } from "../src/open.js";
+import { ACTIVITIES, ACTIVITY_IDS } from "../src/avatar.js";
+import { avatarFile, hookActivity, writeActivity, readActivity, hooksConfig } from "../src/hooks.js";
+import { ANIMATED, POSABLE } from "../src/models.js";
 import { WAVEFORM_NAMES, GRADIENT_NAMES, WAVE_LIMITS, LINE_LIMITS } from "../src/wave.js";
 
 const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
@@ -27,6 +29,7 @@ const HELP = `glyphterm: spin 3D models in your terminal, drawn with text.
 Usage
   glyphterm [model] [options]
   glyphterm open [model] [options]   start the viewer in a new pane (tmux, WezTerm, kitty, Windows Terminal)
+  glyphterm avatar [model] [options] a mascot showing what your coding agent does (see Avatar)
 
   model                 a primitive (${PRIMITIVE_NAMES.slice(0, 4).join(", ")}, …; see --list)
                         or a mesh file (${SUPPORTED_EXTENSIONS.join(" ")}). Default: torus
@@ -62,6 +65,15 @@ Agents & scripts
       --scene <file>    print one frame of what the viewer shows for this scene file (implies
                         --once; the scene area only, without header or caption), or exit 2
                         listing every problem in the file
+
+Avatar
+  glyphterm avatar                   start the avatar viewer (model: buddy, or any model)
+  glyphterm avatar <activity>        set what it shows: ${ACTIVITY_IDS.join(", ")}, or none
+      --detail <text>   with an activity: a short note shown next to it, e.g. a file name
+      --hook            read a Claude Code hook event on stdin and set the matching activity
+      --print-hooks     print the Claude Code settings that run --hook on every event
+  The avatar's file is ${shellCommand([avatarFile()])}
+  (GLYPHTERM_AVATAR or --watch choose another). error and done are short and end by themselves.
 
 Other
       --list            list primitives, styles, glyph palettes and colors
@@ -112,6 +124,9 @@ try {
       ansi: { type: "boolean" },
       watch: { type: "string", short: "w" },
       scene: { type: "string" },
+      detail: { type: "string" },
+      hook: { type: "boolean" },
+      "print-hooks": { type: "boolean" },
       list: { type: "boolean" },
       json: { type: "boolean" },
       help: { type: "boolean", short: "h" },
@@ -142,6 +157,12 @@ if (args.list && args.json) {
     waveforms: WAVEFORM_NAMES,
     dataSources: DATA_SOURCES,
     limits: { ...LIMITS, ...WAVE_LIMITS, lines: LINE_LIMITS },
+    activities: ACTIVITY_IDS.map((id) => ({
+      id,
+      label: ACTIVITIES[id].label,
+      ...(ACTIVITIES[id].duration && { seconds: ACTIVITIES[id].duration }),
+    })),
+    avatarFile: avatarFile(),
     sceneKeys: SCENE_KEYS,
     sceneSchema: SCHEMA_PATH,
   };
@@ -160,8 +181,50 @@ if (args.list) {
 
 const opening = positionals[0] === "open";
 if (opening) positionals.shift();
+
+// `avatar <activity>`, `--hook` and `--print-hooks` only touch the avatar's
+// file; plain `avatar` starts the viewer on it with the buddy.
+const avatar = positionals[0] === "avatar";
+if (avatar) {
+  positionals.shift();
+  const file = resolve(args.watch ?? avatarFile());
+  if (args.hook) {
+    // A hook must never get in the agent's way: no output, always exit 0.
+    try {
+      const change = hookActivity(JSON.parse(readFileSync(0, "utf8")), readActivity(file));
+      if (change) writeActivity(file, change.activity, change.detail);
+    } catch {
+      // Malformed input or an unwritable file: the avatar just doesn't change.
+    }
+    process.exit(0);
+  }
+  if (args["print-hooks"]) {
+    const command = shellCommand([process.execPath, fileURLToPath(import.meta.url), "avatar", "--hook"]);
+    const target = args.watch ? ` --watch ${shellCommand([file])}` : "";
+    process.stdout.write(JSON.stringify(hooksConfig(command + target), null, 2) + "\n");
+    process.exit(0);
+  }
+  const word = positionals[0];
+  if (word !== undefined && !extname(word) && !PRIMITIVE_NAMES.includes(word)) {
+    if (word !== "none" && !ACTIVITY_IDS.includes(word)) {
+      fail(`unknown activity "${word}" (${ACTIVITY_IDS.join(", ")}, or none)`);
+    }
+    try {
+      writeActivity(file, word, args.detail);
+    } catch (err) {
+      fail(`avatar file: ${err.message}`);
+    }
+    process.exit(0);
+  }
+  if (args.detail !== undefined) fail("--detail goes with an activity, e.g. glyphterm avatar coding --detail app.js");
+  positionals[0] ??= "buddy";
+  if (!args.once) args.watch = file;
+}
 if (positionals.length > 1) fail(`expected one model, got ${positionals.length}`);
 if (opening && args.once) fail("open starts the interactive viewer; it can't be combined with --once");
+if (!avatar && (args.hook || args["print-hooks"] || args.detail !== undefined)) {
+  fail("--hook, --print-hooks and --detail belong to glyphterm avatar");
+}
 if (args.scene && (opening || args.watch)) fail("--scene is for previews with --once; the viewer uses --watch");
 
 // With --scene, the scene file decides everything it sets, the model included.
@@ -186,7 +249,8 @@ const model =
 const interactive = opening || (process.stdin.isTTY && process.stdout.isTTY);
 const once = !opening && (args.once || args.scene !== undefined || !interactive);
 const color = Boolean(args.ansi || (!args.plain && process.stdout.isTTY && !process.env.NO_COLOR));
-const isFile = !PRIMITIVE_NAMES.includes(model);
+// Files and the avatar mascot have colors of their own.
+const ownColors = !PRIMITIVE_NAMES.includes(model) || POSABLE.includes(model);
 // Animated models have their own best view; explicit flags still win.
 const view = viewDefaultsFor(model);
 
@@ -213,10 +277,11 @@ const flagWave = defined({
 const defaults = {
   style: model === "field" ? "braille" : "halfblock",
   palette: "auto",
-  color: isFile ? "original" : "phosphor",
+  color: ownColors ? "original" : "phosphor",
   gradient: "synthwave",
   data: "demo",
   ...view,
+  ...(avatar && { activity: "waiting" }),
 };
 const input = { ...defaults, ...scene, ...flags };
 // A malformed scene wave is passed on as is, to be reported.
@@ -228,7 +293,13 @@ const { values: settings, problems } = parseSettings(input);
 const allProblems = args.scene ? [...problems, ...unknownSceneKeys(scene)] : problems;
 if (allProblems.length) fail(allProblems.join("\n  "));
 
-const options = { ...settings, model, fps: clamp(number(args.fps, "fps", 30), LIMITS.fps), watch: args.watch };
+const options = {
+  ...settings,
+  model,
+  fps: clamp(number(args.fps, "fps", 30), LIMITS.fps),
+  watch: args.watch,
+  avatar,
+};
 
 if (opening) {
   // The arguments are valid (checked above); the new pane runs them without "open".
@@ -266,6 +337,8 @@ if (once) {
     stops: options.gradient.stops,
     wave: options.wave,
     samples,
+    // A still of the avatar shows its activity's pose, without the motion.
+    pose: ACTIVITIES[options.activity]?.pose,
   });
   const frame = renderFrame({
     ...options,

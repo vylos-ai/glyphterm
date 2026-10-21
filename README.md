@@ -173,6 +173,45 @@ a `wave` object sets the oscilloscope:
 
 Exit codes: 0 success, 2 invalid arguments or scene, 3 `open` couldn't open a pane.
 
+### An avatar for your coding agent
+
+`glyphterm avatar` shows the buddy, glyphterm's mascot: a little computer on legs that acts
+out what your agent is doing. Start it in a second terminal (or `glyphterm open avatar`):
+
+```sh
+glyphterm avatar                  # the buddy; any model works too: glyphterm avatar examples/rocket.obj
+```
+
+Each activity has its own motion, pose and color, with a short note next to it:
+
+| Activity    | Shows                                 | From the Claude Code hook                    |
+| ----------- | ------------------------------------- | -------------------------------------------- |
+| `thinking`  | sways, looking up, hand on chin       | you send a prompt                            |
+| `reading`   | eyes scanning                         | Read, Grep, Glob, web fetches and searches   |
+| `coding`    | typing, bouncing                      | Edit or Write on code                        |
+| `writing`   | typing, swaying                       | Edit or Write on `.md`, `.txt`, …            |
+| `running`   | jogging                               | Bash                                         |
+| `needs-you` | jumping and waving, eyes wide         | a permission prompt or a question for you    |
+| `waiting`   | breathing, blinking; asleep after 5 m | the turn ends                                |
+| `error`     | head shake, red eyes (2.5 s)          | a tool call fails                            |
+| `done`      | a hop with a turn, arms up (3 s)      | (the agent says so: `glyphterm avatar done`) |
+| `sleeping`  | dozing                                | the session ends                             |
+
+**Hooks make it free.** Claude Code runs `glyphterm avatar --hook` on its own events, so
+the agent spends no tokens on it. The hooks run in the background and never print
+anything. Print the settings and add them to `~/.claude/settings.json` (every project) or a
+project's `.claude/settings.local.json`:
+
+```sh
+glyphterm avatar --print-hooks
+```
+
+Anything else can set an activity too: `glyphterm avatar coding --detail src/app.js`, or
+`glyphterm avatar none` to clear it. The viewer and the hooks share
+`~/.local/state/glyphterm/avatar.json` (on Windows under `%LOCALAPPDATA%`); set
+`GLYPHTERM_AVATAR` or pass `--watch` to use another file, for example one per project.
+The hooks only send file names and short tool descriptions, never your prompts.
+
 ## How it works
 
 ```
@@ -190,6 +229,8 @@ mesh file / primitive ──► normalize (center, radius 1, y-up)
 - `src/viewer.js`: render loop and scene-file watching, with `state.js`, `input.js`,
   `scene.js` and `hud.js` for the parts
 - `src/open.js`: opening a pane in tmux, WezTerm, kitty or Windows Terminal
+- `src/avatar.js`: the avatar's activities, their motions, and the buddy mascot
+- `src/hooks.js`: `glyphterm avatar`: its file, and Claude Code hook events → activities
 - `bin/glyphterm.js`: CLI
 
 Notes:
