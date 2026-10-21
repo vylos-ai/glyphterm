@@ -108,6 +108,21 @@ test("open picks the terminal's own split command, innermost multiplexer first",
     ...argv,
   ]);
   assert.equal(paneLauncher({ WT_SESSION: "1" }, argv, "/w").terminal, "Windows Terminal");
+  // From WSL, the Windows Terminal pane runs the command back in the same distribution.
+  assert.deepEqual(paneLauncher({ WT_SESSION: "1", WSL_DISTRO_NAME: "Ubuntu" }, argv, "/w").command, [
+    "wt.exe",
+    "-w",
+    "0",
+    "split-pane",
+    "-V",
+    "wsl.exe",
+    "-d",
+    "Ubuntu",
+    "--cd",
+    "/w",
+    "--exec",
+    ...argv,
+  ]);
   assert.equal(paneLauncher({ WEZTERM_PANE: "0" }, argv, "/w").terminal, "WezTerm");
   assert.equal(paneLauncher({ KITTY_WINDOW_ID: "1" }, argv, "/w").terminal, "kitty");
 });

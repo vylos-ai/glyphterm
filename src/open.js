@@ -21,6 +21,12 @@ export function paneLauncher(env, argv, cwd) {
     // Needs `allow_remote_control` in kitty.conf; without it kitty refuses and we say so.
     return { terminal: "kitty", command: ["kitty", "@", "launch", "--location=vsplit", "--cwd", cwd, ...argv] };
   }
+  if (env.WT_SESSION && env.WSL_DISTRO_NAME) {
+    // Inside WSL, wt.exe is a Windows program: Linux paths mean nothing to it, so
+    // the new pane starts wsl.exe in the same distribution, which changes to cwd.
+    const wsl = ["wsl.exe", "-d", env.WSL_DISTRO_NAME, "--cd", cwd, "--exec", ...argv];
+    return { terminal: "Windows Terminal", command: ["wt.exe", "-w", "0", "split-pane", "-V", ...wsl] };
+  }
   if (env.WT_SESSION) {
     return { terminal: "Windows Terminal", command: ["wt.exe", "-w", "0", "split-pane", "-V", "-d", cwd, ...argv] };
   }
