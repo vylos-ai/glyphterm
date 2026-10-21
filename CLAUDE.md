@@ -80,7 +80,7 @@ glyphcss explicit `wireframe` edges.
 ## Conventions
 
 - ES modules, no build step, no runtime dependencies beyond glyphcss (Prettier and ESLint
-  are dev-only). Node ≥ 20.
+  are dev-only). Node ≥ 22 (`node --test` with a file pattern needs it).
 - Keep viewer logic out of `viewer.js` where possible: handlers in `input.js`, `scene.js` and
   `hud.js` take the state object and return values, so `test/viewer.test.js` can cover them.
 - Every model is normalized to a bounding radius of 1 so one fit/zoom works for all.

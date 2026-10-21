@@ -15,7 +15,7 @@ hooks at no token cost:
 
 ## Quick start
 
-glyphterm needs Node.js 20 or newer.
+glyphterm needs Node.js 22 or newer.
 
 ```sh
 npm install -g github:vylos-ai/glyphterm
