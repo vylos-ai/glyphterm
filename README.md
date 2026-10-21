@@ -225,6 +225,13 @@ Anything else can set an activity too: `glyphterm avatar coding --detail src/app
 `GLYPHTERM_AVATAR` or pass `--watch` to use another file, for example one per project.
 The hooks only send file names and short tool descriptions, never your prompts.
 
+**Windows Terminal with WSL 2.** The avatar runs well there (tested over a full working day). Run
+glyphterm, Claude Code and the hooks all inside the same WSL distribution, so they share
+the avatar file in the Linux home (`~/.local/state/glyphterm/avatar.json`). Install the
+hooks in the WSL side's `~/.claude/settings.json`, not in Windows. For the second pane,
+duplicate the current one with Alt+Shift+D: it opens the same WSL profile, where you start
+`glyphterm avatar`.
+
 **Session stats.** Press `i` (or start with `--stats`) for a line of numbers under the
 avatar: the model, the context in use (the tokens the latest request sent) with a meter,
 the share of input read from the prompt cache, output tokens, tool calls, failed tool calls
