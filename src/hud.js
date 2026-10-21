@@ -69,7 +69,7 @@ const HINTS = {
     "d cpu data · c gradient · w waveform · , . frequency · ; ' amplitude · { } lines · [ ] scroll · space freeze · drag rotate · m model · q quit",
   wave: "w waveform · , . frequency · ; ' amplitude · [ ] scroll · space freeze · drag rotate · c color · m model · q quit",
   model:
-    "drag/←↑↓→ rotate · wheel/+- zoom · s style · g glyphs · c color · m model · space pause · [ ] speed · r reset · q quit",
+    "drag/←↑↓→ rotate · wheel/+- zoom · s style · g glyphs · c color · m model · a avatar · space pause · [ ] speed · r reset · q quit",
 };
 
 /** The last message, or the keys that matter for the current model. */

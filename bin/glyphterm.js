@@ -82,7 +82,7 @@ Other
 
 Keys
   drag / arrows / hjkl rotate · wheel / + - zoom · s style · g glyphs · c color
-  m next model · space pause · [ ] spin speed · 1-7 pick style · r reset · q quit
+  m next model · a next avatar · space pause · [ ] spin speed · 1-7 pick style · r reset · q quit
 `;
 
 function fail(message) {

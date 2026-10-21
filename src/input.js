@@ -5,7 +5,8 @@
 import { STYLE_IDS, PALETTES } from "./render.js";
 import { THEME_NAMES, resolveTheme } from "./themes.js";
 import { clampField, WAVEFORM_NAMES, GRADIENT_NAMES, resolveGradient } from "./wave.js";
-import { clamp, LIMITS } from "./settings.js";
+import { clamp, LIMITS, viewDefaultsFor } from "./settings.js";
+import { AVATAR_NAMES, DEFAULT_AVATAR } from "./avatar.js";
 import { isAnimated, isField, resetView } from "./state.js";
 
 // SGR mouse reports, CSI and SS3 sequences (arrow keys), a lone Esc, or any single character.
@@ -56,6 +57,20 @@ const KEYS = [
     keys: ["m", "M"],
     run: (s, key) => {
       s.sourceIdx = (s.sourceIdx + (key === "m" ? 1 : -1) + s.sources.length) % s.sources.length;
+      return "model";
+    },
+  },
+  {
+    // Avatars only, each with its own view; from any other model, the default avatar.
+    keys: ["a", "A"],
+    run: (s, key) => {
+      const current = AVATAR_NAMES.indexOf(s.source);
+      const next =
+        current < 0
+          ? DEFAULT_AVATAR
+          : AVATAR_NAMES[(current + (key === "a" ? 1 : -1) + AVATAR_NAMES.length) % AVATAR_NAMES.length];
+      s.sourceIdx = s.sources.indexOf(next);
+      Object.assign(s, viewDefaultsFor(next));
       return "model";
     },
   },

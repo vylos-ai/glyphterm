@@ -138,7 +138,16 @@ export async function runViewer(options) {
       }
       const effect = handleKey(state, event.key, options);
       if (effect === "quit") return quit();
-      if (effect === "model") setModel(state.sources[state.sourceIdx]);
+      if (effect === "model") {
+        // The scene file names the new model once it has loaded; written
+        // earlier, the next reload of the file would switch back.
+        setModel(state.sources[state.sourceIdx]).then(() => {
+          if (!watchPath) return;
+          writeScene();
+          writeStatus();
+        });
+        continue;
+      }
       if (effect === "colors") refreshGeometry();
       if (effect && watchPath) writeScene();
     }

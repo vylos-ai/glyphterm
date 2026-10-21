@@ -34,18 +34,19 @@ Run `npm link` to get a global `glyphterm` command.
 
 ### Controls
 
-| Input                      | Action                                                      |
-| -------------------------- | ----------------------------------------------------------- |
-| mouse drag, arrows, `hjkl` | rotate                                                      |
-| mouse wheel, `+` / `-`     | zoom                                                        |
-| `s` / `S`, `1`–`7`         | next / previous / pick style                                |
-| `g` / `G`                  | glyph palette (ascii, lines, blocks, runes, hex, …)         |
-| `c` / `C`                  | color: phosphor, amber, cyan, magenta, ice, paper, original |
-| `m` / `M`                  | next / previous model                                       |
-| `space`                    | pause auto-rotation                                         |
-| `[` / `]`                  | spin slower / faster                                        |
-| `r`                        | reset view                                                  |
-| `q`, `Esc`, `Ctrl-C`       | quit                                                        |
+| Input                      | Action                                                       |
+| -------------------------- | ------------------------------------------------------------ |
+| mouse drag, arrows, `hjkl` | rotate                                                       |
+| mouse wheel, `+` / `-`     | zoom                                                         |
+| `s` / `S`, `1`–`7`         | next / previous / pick style                                 |
+| `g` / `G`                  | glyph palette (ascii, lines, blocks, runes, hex, …)          |
+| `c` / `C`                  | color: phosphor, amber, cyan, magenta, ice, paper, original  |
+| `m` / `M`                  | next / previous model                                        |
+| `a` / `A`                  | next / previous avatar (core, buddy), each with its own view |
+| `space`                    | pause auto-rotation                                          |
+| `[` / `]`                  | spin slower / faster                                         |
+| `r`                        | reset view                                                   |
+| `q`, `Esc`, `Ctrl-C`       | quit                                                         |
 
 ### Styles
 

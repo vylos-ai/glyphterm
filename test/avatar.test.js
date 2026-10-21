@@ -18,11 +18,13 @@ import {
   smoothMotion,
   avatarPolygons,
   AVATAR_NAMES,
+  DEFAULT_AVATAR,
 } from "../src/avatar.js";
 import { modelGeometry } from "../src/geometry.js";
 import { hookActivity, writeActivity, readActivity, avatarFile, hooksConfig, HOOK_EVENTS } from "../src/hooks.js";
 import { loadModel } from "../src/models.js";
 import { createState } from "../src/state.js";
+import { handleKey } from "../src/input.js";
 import { parseSettings, viewDefaultsFor } from "../src/settings.js";
 import { applyScene, sceneSnapshot } from "../src/scene.js";
 import { captionLine, sceneRows } from "../src/hud.js";
@@ -126,6 +128,24 @@ test("motion eases toward the target and turns the short way round", () => {
   const eased = smoothMotion({ ...target, yaw: 350, y: 0 }, target, 0.03);
   assert.ok(eased.yaw > 350 && eased.yaw < 360, `yaw ${eased.yaw} goes up to 360, not down to 0`);
   assert.ok(eased.y > 0 && eased.y < 0.2);
+});
+
+test("a switches between the avatars with their own views; m still cycles every model", () => {
+  const { values } = parseSettings({ style: "halfblock", color: "phosphor", ...viewDefaultsFor("torus") });
+  const options = { ...values, model: "torus", fps: 30 };
+  const state = createState(options);
+  const pick = (key) => {
+    assert.equal(handleKey(state, key, options), "model");
+    state.source = state.sources[state.sourceIdx]; // what the viewer does once it has loaded
+    return state.source;
+  };
+  assert.equal(pick("a"), DEFAULT_AVATAR, "from any other model to the default avatar");
+  assert.equal(state.pitch, viewDefaultsFor(DEFAULT_AVATAR).pitch);
+  const other = pick("a");
+  assert.ok(AVATAR_NAMES.includes(other) && other !== DEFAULT_AVATAR);
+  assert.equal(state.pitch, viewDefaultsFor(other).pitch);
+  assert.equal(pick("A"), DEFAULT_AVATAR);
+  assert.ok(!AVATAR_NAMES.includes(pick("m")), "m goes on to the next model, whatever it is");
 });
 
 test("the scene file restarts an activity only when it names a new one", () => {
