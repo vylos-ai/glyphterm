@@ -190,7 +190,7 @@ glyphterm avatar examples/rocket.obj   # any model, with the motions below
 The **cloud** takes a new formation for each activity, and its particles fly over from the
 old one, so it regroups rather than switching: clusters that gather and part while
 thinking, a stream flowing inward while reading, rows of code scrolling up while coding, a
-fast vortex while running, a question mark when it needs you, a scatter on an error, an
+two suns circling with swirling tails while running, a question mark when it needs you, a scatter on an error, an
 even sphere when done, dust settling while asleep. Nearer characters are brighter; the
 farthest shrink to dots. Press `g` to draw it with a glyph palette instead: a cloud of
 binary digits, runes, stars or braille. The **core** changes its form and color with each activity, snapping to the new form with a
