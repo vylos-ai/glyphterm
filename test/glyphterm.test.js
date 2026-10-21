@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { htmlToLines, visibleLength } from "../src/ansi.js";
+import { htmlToLines, visibleLength, halfblockPixels, downsamplePixels, pixelsToLines } from "../src/ansi.js";
 import { loadModel, PRIMITIVE_NAMES, ANIMATED } from "../src/models.js";
 import { renderFrame, STYLES } from "../src/render.js";
 import { resolveTheme } from "../src/themes.js";
@@ -16,6 +16,26 @@ test("htmlToLines translates foreground and background spans", () => {
   assert.equal(first, "a\x1b[38;2;255;0;0mb\x1b[0m");
   assert.equal(second, "\x1b[38;2;0;255;0m\x1b[48;2;0;0;255mc\x1b[0m<");
   assert.deepEqual(htmlToLines(html, { color: false }), ["ab", "c<"]);
+});
+
+test("half-block pixels survive a round trip, and downsampling blends colors", () => {
+  const html =
+    '<span style="color:#ff0000;background-color:#0000ff">▀</span>▄ \n<span style="color:#00ff00">█</span>  ';
+  const pixels = halfblockPixels(html);
+  assert.deepEqual(pixels, [
+    ["#ff0000", null, null],
+    ["#0000ff", null, null],
+    ["#00ff00", null, null],
+    ["#00ff00", null, null],
+  ]);
+  assert.equal(pixelsToLines(pixels)[1].replace(/\x1b\[[0-9;]*m/g, ""), "█  ");
+
+  // 2x2 blocks: an average of the drawn pixels, empty unless half of it is drawn.
+  const big = [
+    ["#000000", "#ffffff", "#ffffff", null],
+    ["#000000", "#ffffff", null, null],
+  ];
+  assert.deepEqual(downsamplePixels(big, 2), [["#808080", null]]);
 });
 
 test("every primitive renders in every style at the requested size", async () => {

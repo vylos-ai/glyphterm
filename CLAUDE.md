@@ -68,6 +68,11 @@ glyphcss explicit `wireframe` edges.
 - **Hidden-line removal (`hiddenLines: "hide"`)** drops real edges in ASCII wireframes and
   barely hides anything for explicit edges. The `wire` style is x-ray. The field does its
   own ridgeline occlusion (horizon buffer in screen space, lines drawn front to back).
+- **No anti-aliasing:** each half-block pixel is all or nothing, so edges stair-step and
+  crawl while moving. `renderFrame` supersamples half-blocks (2x: rasterize larger, read the
+  `▀▄█` cells back as pixels, average blocks; `ansi.js#halfblockPixels`). 2x costs ~4x the
+  raster time (~10 ms at 116x48); 3x looked barely better for twice that. The silhouette
+  against the terminal background stays hard (its color is unknown).
 - **The `default` wireframe palette is decorative symbols** (◆⊕∴). Wireframes use `ascii`.
 
 ## Conventions

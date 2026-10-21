@@ -1,7 +1,7 @@
 // One frame: normalized polygons + view settings -> terminal lines.
 
 import { buildRasterizeContext, rasterize, createGlyphCamera } from "glyphcss";
-import { htmlToLines, overlayText } from "./ansi.js";
+import { htmlToLines, overlayText, halfblockPixels, downsamplePixels, pixelsToLines } from "./ansi.js";
 
 // Each style is one glyphcss render mode + character encoding.
 export const STYLES = [
@@ -84,6 +84,9 @@ function viewTransform(yawDeg, pitchDeg, { roll = 0, scale = 1, x: dx = 0, y: dy
   };
 }
 
+// Samples per pixel along each axis for half-block rendering.
+const SUPERSAMPLE = 2;
+
 /**
  * Render `polygons` (bounding radius 1) into `rows` lines of `cols` cells.
  * Terminal cells are about twice as tall as wide, which glyphcss compensates
@@ -102,6 +105,7 @@ export function renderFrame({
   color = true,
   glow = false,
   motion,
+  supersample = SUPERSAMPLE,
 }) {
   const { rotate, place } = viewTransform(yaw, pitch, motion);
   if (lines) return renderLines({ lines, style, rotate, zoom, cols, rows, color });
@@ -113,10 +117,14 @@ export function renderFrame({
   // The decorative glyphcss default reads poorly for wireframes; plain ASCII
   // plus box-drawing junctions looks like a classic vector display.
   const glyphPalette = palette !== "auto" ? palette : style.mode === "wireframe" ? "ascii" : undefined;
-  const fit = (0.92 * Math.min(cols, rows * 2)) / 2;
+  // Half-blocks are plain pixels, so they can be supersampled: rendered larger
+  // and averaged back down, which smooths stair-stepped edges.
+  const factor = style.charMode === "halfblock" && color ? supersample : 1;
+  const [gridCols, gridRows] = [cols * factor, rows * factor];
+  const fit = (0.92 * Math.min(gridCols, gridRows * 2)) / 2;
   const ctx = buildRasterizeContext({
     camera: createGlyphCamera({ rotX: 0, rotY: 0, zoom: fit * zoom }),
-    grid: { cols, rows, cellAspect: 2, cellWidth: 1, cellHeight: 2 },
+    grid: { cols: gridCols, rows: gridRows, cellAspect: 2, cellWidth: 1, cellHeight: 2 },
     polygons: viewed,
     mode: style.mode,
     charMode: style.charMode,
@@ -127,6 +135,7 @@ export function renderFrame({
     wireframeJunctions: style.mode === "wireframe" && style.charMode === "ascii" && glyphPalette === "ascii",
     useColors: color,
   });
+  if (factor > 1) return pixelsToLines(downsamplePixels(halfblockPixels(rasterize(ctx)), factor));
   return htmlToLines(rasterize(ctx), { color });
 }
 

@@ -129,3 +129,100 @@ export function overlayText(line, col, text, hex) {
   }
   return out + (active ? term.reset : "");
 }
+
+// --- Half-block pixels (supersampling) ---------------------------------------
+
+/**
+ * Read glyphcss half-block HTML as pixels: each cell is a top and a bottom
+ * pixel, a `#rrggbb` color or null where nothing was drawn. Returns rows of
+ * pixels, two per cell row.
+ */
+export function halfblockPixels(html) {
+  const rows = [[], []];
+  const token = /<span\s+style="([^"]*)">([^<]*)<\/span>|<br\s*\/?>|<[^>]+>|([^<]+)/g;
+  const add = (text, style = "") => {
+    const color = /(?:^|;)\s*color:\s*(#[0-9a-f]{6})/i.exec(style)?.[1].toLowerCase() ?? null;
+    const background = /background-color:\s*(#[0-9a-f]{6})/i.exec(style)?.[1].toLowerCase() ?? null;
+    for (const ch of decodeEntities(text)) {
+      if (ch === "\n") {
+        rows.push([], []);
+        continue;
+      }
+      const [top, bottom] = rows.slice(-2);
+      const [t, b] =
+        ch === "▀"
+          ? [color, background]
+          : ch === "▄"
+            ? [background, color]
+            : ch === "█"
+              ? [color, color]
+              : [background, background];
+      top.push(t);
+      bottom.push(b);
+    }
+  };
+  for (const [match, style, spanText, plainText] of html.matchAll(token)) {
+    if (style !== undefined) add(spanText, style);
+    else if (plainText !== undefined) add(plainText);
+    else if (match.startsWith("<br")) add("\n");
+  }
+  // A trailing newline leaves an empty pair of rows.
+  while (rows.length > 2 && rows.at(-1).length === 0) rows.splice(-2, 2);
+  return rows;
+}
+
+/**
+ * Shrink pixel rows by `factor` in both directions. Each new pixel is the
+ * average of the drawn pixels in its block, so edges between colors blend;
+ * it stays empty unless at least half the block was drawn.
+ */
+export function downsamplePixels(rows, factor) {
+  const out = [];
+  for (let y = 0; y + factor <= rows.length; y += factor) {
+    const row = [];
+    const width = Math.min(...rows.slice(y, y + factor).map((r) => r.length));
+    for (let x = 0; x + factor <= width; x += factor) {
+      let [r, g, b, n] = [0, 0, 0, 0];
+      for (let dy = 0; dy < factor; dy++) {
+        for (let dx = 0; dx < factor; dx++) {
+          const hex = rows[y + dy][x + dx];
+          if (!hex) continue;
+          const [cr, cg, cb] = hexToRgb(hex);
+          r += cr;
+          g += cg;
+          b += cb;
+          n++;
+        }
+      }
+      row.push(n * 2 < factor * factor ? null : rgbToHex(r / n, g / n, b / n));
+    }
+    out.push(row);
+  }
+  return out;
+}
+
+const rgbToHex = (...rgb) => "#" + rgb.map((c) => Math.round(c).toString(16).padStart(2, "0")).join("");
+
+/** Pixel rows (two per text row) as half-block ANSI lines. */
+export function pixelsToLines(rows) {
+  const lines = [];
+  for (let y = 0; y + 1 < rows.length; y += 2) {
+    let line = "";
+    let active = "";
+    rows[y].forEach((top, x) => {
+      const bottom = rows[y + 1][x];
+      let ch = " ";
+      let sgr = "";
+      if (top && bottom) [ch, sgr] = top === bottom ? ["█", fg(top)] : ["▀", fg(top) + bg(bottom)];
+      else if (top) [ch, sgr] = ["▀", fg(top)];
+      else if (bottom) [ch, sgr] = ["▄", fg(bottom)];
+      if (sgr !== active) {
+        line += (active ? term.reset : "") + sgr;
+        active = sgr;
+      }
+      line += ch;
+    });
+    lines.push(line + (active ? term.reset : ""));
+  }
+  return lines;
+}
