@@ -16,16 +16,16 @@ what was learned building it.
 
 ## Architecture
 
-| File | Role |
-|---|---|
-| `bin/glyphterm.js` | CLI: arguments, per-model default views, `--once` path |
-| `src/viewer.js` | Render loop, HUD, keyboard/mouse (SGR), scene-file watching, CPU sampler lifecycle |
-| `src/render.js` | `renderFrame()`: view transform, lighting, styles, polyline/ridgeline renderer |
-| `src/ansi.js` | Escape codes, glyphcss HTML → ANSI (fg and bg), `overlayText()` for labels |
-| `src/models.js` | Primitives, mesh-file loading (OBJ+MTL/STL/glTF/VOX), normalization |
-| `src/wave.js` | Animated models: `wave` (oscilloscope) and `field` (ridgeline, demo or data) |
-| `src/cpu.js` | Per-core CPU load sampler (`os.cpus()`, cross-platform) |
-| `src/themes.js` | Phosphor color themes and tinting |
+| File               | Role                                                                               |
+| ------------------ | ---------------------------------------------------------------------------------- |
+| `bin/glyphterm.js` | CLI: arguments, per-model default views, `--once` path                             |
+| `src/viewer.js`    | Render loop, HUD, keyboard/mouse (SGR), scene-file watching, CPU sampler lifecycle |
+| `src/render.js`    | `renderFrame()`: view transform, lighting, styles, polyline/ridgeline renderer     |
+| `src/ansi.js`      | Escape codes, glyphcss HTML → ANSI (fg and bg), `overlayText()` for labels         |
+| `src/models.js`    | Primitives, mesh-file loading (OBJ+MTL/STL/glTF/VOX), normalization                |
+| `src/wave.js`      | Animated models: `wave` (oscilloscope) and `field` (ridgeline, demo or data)       |
+| `src/cpu.js`       | Per-core CPU load sampler (`os.cpus()`, cross-platform)                            |
+| `src/themes.js`    | Phosphor color themes and tinting                                                  |
 
 Data flow: model polygons (y-up, bounding radius 1) → `renderFrame` rotates them by
 yaw/pitch → glyphcss `rasterize()` → `<pre>` HTML → `htmlToLines` → ANSI lines → the

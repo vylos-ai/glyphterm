@@ -34,30 +34,30 @@ Run `npm link` to get a global `glyphterm` command.
 
 ### Controls
 
-| Input | Action |
-|---|---|
-| mouse drag, arrows, `hjkl` | rotate |
-| mouse wheel, `+` / `-` | zoom |
-| `s` / `S`, `1`–`7` | next / previous / pick style |
-| `g` / `G` | glyph palette (ascii, lines, blocks, runes, hex, …) |
-| `c` / `C` | color: phosphor, amber, cyan, magenta, ice, paper, original |
-| `m` / `M` | next / previous model |
-| `space` | pause auto-rotation |
-| `[` / `]` | spin slower / faster |
-| `r` | reset view |
-| `q`, `Esc`, `Ctrl-C` | quit |
+| Input                      | Action                                                      |
+| -------------------------- | ----------------------------------------------------------- |
+| mouse drag, arrows, `hjkl` | rotate                                                      |
+| mouse wheel, `+` / `-`     | zoom                                                        |
+| `s` / `S`, `1`–`7`         | next / previous / pick style                                |
+| `g` / `G`                  | glyph palette (ascii, lines, blocks, runes, hex, …)         |
+| `c` / `C`                  | color: phosphor, amber, cyan, magenta, ice, paper, original |
+| `m` / `M`                  | next / previous model                                       |
+| `space`                    | pause auto-rotation                                         |
+| `[` / `]`                  | spin slower / faster                                        |
+| `r`                        | reset view                                                  |
+| `q`, `Esc`, `Ctrl-C`       | quit                                                        |
 
 ### Styles
 
-| id | look |
-|---|---|
-| `shade` | classic ASCII shading ramp |
+| id          | look                                                             |
+| ----------- | ---------------------------------------------------------------- |
+| `shade`     | classic ASCII shading ramp                                       |
 | `halfblock` | `▀▄█` with two colors per cell, so twice the vertical resolution |
-| `quadrant` | `▖▗▘▝▚▞…`: 2×2 sub-pixels per cell |
-| `wire` | ASCII x-ray wireframe with box-drawing junctions |
-| `braille` | braille-dot wireframe with hidden lines removed |
-| `xray` | braille-dot wireframe showing all edges |
-| `ink` | silhouette and crease outlines only |
+| `quadrant`  | `▖▗▘▝▚▞…`: 2×2 sub-pixels per cell                               |
+| `wire`      | ASCII x-ray wireframe with box-drawing junctions                 |
+| `braille`   | braille-dot wireframe with hidden lines removed                  |
+| `xray`      | braille-dot wireframe showing all edges                          |
+| `ink`       | silhouette and crease outlines only                              |
 
 ### Oscilloscope
 
@@ -65,20 +65,20 @@ Run `npm link` to get a global `glyphterm` command.
 graticule. The trace takes the theme color (`c`), and the screen and grid are darker shades
 of it.
 
-| Key | Action |
-|---|---|
-| `w` / `W` | waveform: sine, square, triangle, saw |
-| `,` / `.` | frequency (periods across the screen) |
-| `;` / `'` | amplitude |
+| Key       | Action                                        |
+| --------- | --------------------------------------------- |
+| `w` / `W` | waveform: sine, square, triangle, saw         |
+| `,` / `.` | frequency (periods across the screen)         |
+| `;` / `'` | amplitude                                     |
 | `[` / `]` | scroll speed (negative scrolls the other way) |
-| `space` | freeze the trace |
+| `space`   | freeze the trace                              |
 
 You can also set these from the command line (`--waveform`, `--frequency`, `--amplitude`,
 `--scroll`) or with a `wave` object in the scene file (see below).
 
 ### Wave field
 
-`glyphterm field` is a ridgeline chart (think Joy Division's *Unknown Pleasures*). It shows
+`glyphterm field` is a ridgeline chart (think Joy Division's _Unknown Pleasures_). It shows
 a stack of separate, thin braille lines, each its own animated signal: a quiet baseline with
 a burst of peaks. Lines are colored along a gradient from front to back, and each line hides
 whatever is behind it. Choose the `xray` style (`6`) to see every line in full.

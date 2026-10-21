@@ -238,8 +238,14 @@ export async function runViewer(options) {
       isField() ? `gradient:${state.gradient.name}` : state.theme.name,
       ...(isWave()
         ? sampler
-          ? [`cpu · ${sampler.series.length} cores · avg ${Math.round(sampler.average() * 100)}%`, state.paused ? "frozen" : "live"]
-          : [`${isField() ? `${state.wave.lines} lines · ` : ""}${state.wave.waveform} ×${state.wave.frequency}`, state.paused ? "frozen" : `scroll ${state.wave.speed}/s`]
+          ? [
+              `cpu · ${sampler.series.length} cores · avg ${Math.round(sampler.average() * 100)}%`,
+              state.paused ? "frozen" : "live",
+            ]
+          : [
+              `${isField() ? `${state.wave.lines} lines · ` : ""}${state.wave.waveform} ×${state.wave.frequency}`,
+              state.paused ? "frozen" : `scroll ${state.wave.speed}/s`,
+            ]
         : [state.paused ? "paused" : `spin ${state.spin}°/s`]),
     ].join(" · ");
     const right = `${Math.round(state.fps)} fps `;
@@ -260,15 +266,19 @@ export async function runViewer(options) {
 
   function footer(cols) {
     if (state.message) {
-      return bar([[` ${state.message}`, state.messageIsError ? ERROR : state.theme.color ?? "#e8e4d8"]], cols, HEADER_BG);
+      return bar(
+        [[` ${state.message}`, state.messageIsError ? ERROR : (state.theme.color ?? "#e8e4d8")]],
+        cols,
+        HEADER_BG,
+      );
     }
     const hints = sampler
       ? "d demo data · c gradient · ; ' height · space freeze · drag rotate · +- zoom · m model · q quit"
       : isField()
-      ? "d cpu data · c gradient · w waveform · , . frequency · ; ' amplitude · { } lines · [ ] scroll · space freeze · drag rotate · m model · q quit"
-      : isWave()
-      ? "w waveform · , . frequency · ; ' amplitude · [ ] scroll · space freeze · drag rotate · c color · m model · q quit"
-      : "drag/←↑↓→ rotate · wheel/+- zoom · s style · g glyphs · c color · m model · space pause · [ ] speed · r reset · q quit";
+        ? "d cpu data · c gradient · w waveform · , . frequency · ; ' amplitude · { } lines · [ ] scroll · space freeze · drag rotate · m model · q quit"
+        : isWave()
+          ? "w waveform · , . frequency · ; ' amplitude · [ ] scroll · space freeze · drag rotate · c color · m model · q quit"
+          : "drag/←↑↓→ rotate · wheel/+- zoom · s style · g glyphs · c color · m model · space pause · [ ] speed · r reset · q quit";
     return bar([[` ${hints}`, DIM]], cols, HEADER_BG);
   }
 
@@ -383,13 +393,17 @@ export async function runViewer(options) {
       case "]":
       case "[": {
         const step = key === "]" ? 1 : -1;
-        if (isWave()) state.wave = clampField({ ...state.wave, speed: Number((state.wave.speed + step * 0.25).toFixed(2)) });
+        if (isWave())
+          state.wave = clampField({ ...state.wave, speed: Number((state.wave.speed + step * 0.25).toFixed(2)) });
         else state.spin = Math.max(-720, Math.min(720, state.spin + step * 10));
         break;
       }
       case "w":
       case "W":
-        state.wave.waveform = WAVEFORM_NAMES[cycle(WAVEFORM_NAMES.length, WAVEFORM_NAMES.indexOf(state.wave.waveform), key === "w" ? 1 : -1)];
+        state.wave.waveform =
+          WAVEFORM_NAMES[
+            cycle(WAVEFORM_NAMES.length, WAVEFORM_NAMES.indexOf(state.wave.waveform), key === "w" ? 1 : -1)
+          ];
         break;
       case "d":
       case "D":
@@ -405,11 +419,17 @@ export async function runViewer(options) {
         break;
       case ";":
       case "'":
-        state.wave = clampField({ ...state.wave, amplitude: Number((state.wave.amplitude + (key === "'" ? 0.1 : -0.1)).toFixed(2)) });
+        state.wave = clampField({
+          ...state.wave,
+          amplitude: Number((state.wave.amplitude + (key === "'" ? 0.1 : -0.1)).toFixed(2)),
+        });
         break;
       case "r":
       case "R":
-        Object.assign(state, initial, { paused: false, wave: clampField({ ...defaultsFor(options.model), ...options.wave }) });
+        Object.assign(state, initial, {
+          paused: false,
+          wave: clampField({ ...defaultsFor(options.model), ...options.wave }),
+        });
         break;
       default:
         if (key >= "1" && key <= String(STYLES.length)) state.styleIdx = Number(key) - 1;

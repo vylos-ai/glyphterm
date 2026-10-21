@@ -17,7 +17,12 @@ class Mesh {
     this.lines.push(`usemtl ${material}`);
     for (const [x, y, z] of vertices) this.lines.push(`v ${x.toFixed(4)} ${y.toFixed(4)} ${z.toFixed(4)}`);
     for (const face of faces) {
-      const oriented = facesOutward(face.map((i) => vertices[i]), center) ? face : [...face].reverse();
+      const oriented = facesOutward(
+        face.map((i) => vertices[i]),
+        center,
+      )
+        ? face
+        : [...face].reverse();
       this.lines.push(`f ${oriented.map((i) => i + 1 + this.vertexCount).join(" ")}`);
     }
     this.vertexCount += vertices.length;
@@ -25,10 +30,23 @@ class Mesh {
 
   box(material, [x0, y0, z0], [x1, y1, z1], transform = (v) => v) {
     const corners = [
-      [x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0],
-      [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1],
+      [x0, y0, z0],
+      [x1, y0, z0],
+      [x1, y1, z0],
+      [x0, y1, z0],
+      [x0, y0, z1],
+      [x1, y0, z1],
+      [x1, y1, z1],
+      [x0, y1, z1],
     ].map(transform);
-    const faces = [[0, 1, 2, 3], [4, 5, 6, 7], [0, 1, 5, 4], [3, 2, 6, 7], [0, 3, 7, 4], [1, 2, 6, 5]];
+    const faces = [
+      [0, 1, 2, 3],
+      [4, 5, 6, 7],
+      [0, 1, 5, 4],
+      [3, 2, 6, 7],
+      [0, 3, 7, 4],
+      [1, 2, 6, 5],
+    ];
     this.part(material, corners, faces, transform([(x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2]));
   }
 
@@ -86,7 +104,12 @@ class Mesh {
       const center = points[i].map((v, k) => (v + points[i + 1][k]) / 2);
       for (let s = 0; s < sides; s++) {
         const face = [index(i, s), index(i, s + 1), index(i + 1, s + 1), index(i + 1, s)];
-        const oriented = facesOutward(face.map((f) => rings.flat()[f]), center) ? face : [...face].reverse();
+        const oriented = facesOutward(
+          face.map((f) => rings.flat()[f]),
+          center,
+        )
+          ? face
+          : [...face].reverse();
         this.lines.push(`f ${oriented.map((f) => f + 1 + this.vertexCount).join(" ")}`);
       }
     }
@@ -133,10 +156,32 @@ function retroComputer() {
 
 function rocket() {
   const m = new Mesh();
-  m.lathe("E8E8E8", [[0.36, -0.9], [0.4, -0.3], [0.4, 0.5], [0.36, 0.8]]); // body
-  m.lathe("E0402F", [[0.36, 0.8], [0.3, 1.1], [0.16, 1.35], [0, 1.5]]); // nose cone
-  m.lathe("555555", [[0.2, -1.2], [0.28, -1.05], [0.32, -0.9]]); // nozzle
-  m.lathe("FFB000", [[0, -1.5], [0.12, -1.35], [0.18, -1.2]], 12); // flame
+  m.lathe("E8E8E8", [
+    [0.36, -0.9],
+    [0.4, -0.3],
+    [0.4, 0.5],
+    [0.36, 0.8],
+  ]); // body
+  m.lathe("E0402F", [
+    [0.36, 0.8],
+    [0.3, 1.1],
+    [0.16, 1.35],
+    [0, 1.5],
+  ]); // nose cone
+  m.lathe("555555", [
+    [0.2, -1.2],
+    [0.28, -1.05],
+    [0.32, -0.9],
+  ]); // nozzle
+  m.lathe(
+    "FFB000",
+    [
+      [0, -1.5],
+      [0.12, -1.35],
+      [0.18, -1.2],
+    ],
+    12,
+  ); // flame
   for (let i = 0; i < 3; i++) {
     const a = (i / 3) * Math.PI * 2;
     const spin = ([x, y, z]) => [x * Math.cos(a) - z * Math.sin(a), y, x * Math.sin(a) + z * Math.cos(a)];

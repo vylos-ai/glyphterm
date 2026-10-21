@@ -10,7 +10,8 @@ import { resolveTheme } from "../src/themes.js";
 const root = fileURLToPath(new URL("..", import.meta.url));
 
 test("htmlToLines translates foreground and background spans", () => {
-  const html = 'a<span style="color:#ff0000">b</span>\n<span style="color:#00ff00;background-color:#0000ff">c</span>&lt;';
+  const html =
+    'a<span style="color:#ff0000">b</span>\n<span style="color:#00ff00;background-color:#0000ff">c</span>&lt;';
   const [first, second] = htmlToLines(html);
   assert.equal(first, "a\x1b[38;2;255;0;0mb\x1b[0m");
   assert.equal(second, "\x1b[38;2;0;255;0m\x1b[48;2;0;0;255mc\x1b[0m<");
@@ -24,7 +25,10 @@ test("every primitive renders in every style at the requested size", async () =>
       const lines = renderFrame({ polygons, style, yaw: 30, pitch: 20, cols: 40, rows: 12 });
       assert.equal(lines.length, 12, `${name}/${style.id} rows`);
       for (const line of lines) assert.equal(visibleLength(line), 40, `${name}/${style.id} width`);
-      assert.ok(lines.some((l) => l.trim()), `${name}/${style.id} drew nothing`);
+      assert.ok(
+        lines.some((l) => l.trim()),
+        `${name}/${style.id} drew nothing`,
+      );
     }
   }
 });
@@ -39,7 +43,9 @@ test("models are normalized to a bounding radius of 1", async () => {
 
 test("OBJ files keep y-up orientation (rocket nose on top)", async () => {
   const { polygons } = await loadModel(`${root}/examples/rocket.obj`);
-  const top = polygons.reduce((best, p) => (Math.max(...p.vertices.map((v) => v[1])) > Math.max(...best.vertices.map((v) => v[1])) ? p : best));
+  const top = polygons.reduce((best, p) =>
+    Math.max(...p.vertices.map((v) => v[1])) > Math.max(...best.vertices.map((v) => v[1])) ? p : best,
+  );
   assert.equal(top.color.toLowerCase(), "#e0402f");
 });
 
@@ -67,7 +73,10 @@ test("wave model animates and honors its settings", async () => {
   const { wavePolygons, WAVEFORMS, clampWave } = await import("../src/wave.js");
   const { polygons, animated } = await loadModel("wave");
   assert.ok(animated && polygons.length > 0);
-  const traceY = (opts) => wavePolygons({ color: "#33ff66", ...opts }).filter((p) => p.color === "#33ff66").map((p) => p.vertices[0][1]);
+  const traceY = (opts) =>
+    wavePolygons({ color: "#33ff66", ...opts })
+      .filter((p) => p.color === "#33ff66")
+      .map((p) => p.vertices[0][1]);
   assert.notDeepEqual(traceY({ time: 0 }), traceY({ time: 0.3 }), "trace scrolls over time");
   const square = traceY({ waveform: "square" });
   assert.ok(Math.max(...square) > 0 && Math.min(...square) < 0);
@@ -97,7 +106,8 @@ test("ridgeline occlusion hides lines behind taller lines in front", async () =>
   const flat = (z, y, color) => ({ color, points: [-0.8, 0, 0.8].map((x) => [x, y, z]) });
   // A tall line in front and a lower line behind it: viewed head-on, the back line is hidden.
   const lines = [flat(0.5, 0.2, "#ff0000"), flat(-0.5, 0, "#0000ff")];
-  const draw = (style) => renderFrame({ lines, style: STYLES.find((s) => s.id === style), yaw: 0, pitch: 0, cols: 40, rows: 12 }).join("");
+  const draw = (style) =>
+    renderFrame({ lines, style: STYLES.find((s) => s.id === style), yaw: 0, pitch: 0, cols: 40, rows: 12 }).join("");
   assert.ok(!draw("braille").includes("38;2;0;0;255"), "back line hidden");
   assert.ok(draw("xray").includes("38;2;0;0;255"), "x-ray shows it");
 });

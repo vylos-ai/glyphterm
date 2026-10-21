@@ -10,7 +10,8 @@ import { wavePolygons } from "./wave.js";
 const O = [0, 0, 0];
 
 export const PRIMITIVES = {
-  torus: (color) => core.torusPolygons({ center: O, majorRadius: 1, minorRadius: 0.42, segments: 40, sides: 20, color }),
+  torus: (color) =>
+    core.torusPolygons({ center: O, majorRadius: 1, minorRadius: 0.42, segments: 40, sides: 20, color }),
   sphere: (color) => core.spherePolygons({ center: O, size: 2, subdivisions: 3, color }),
   cube: (color) => core.cubePolygons({ center: O, size: 1, color }),
   icosahedron: (color) => core.icosahedronPolygons({ center: O, size: 1, color }),

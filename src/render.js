@@ -20,8 +20,20 @@ export const STYLE_IDS = STYLES.map((s) => s.id);
 
 // glyphcss glyph palettes; "auto" lets each style use its own default.
 export const PALETTES = [
-  "auto", "ascii", "detail", "dense", "lines", "blocks", "dots", "stars",
-  "braille", "runes", "math", "binary", "hex", "arrows",
+  "auto",
+  "ascii",
+  "detail",
+  "dense",
+  "lines",
+  "blocks",
+  "dots",
+  "stars",
+  "braille",
+  "runes",
+  "math",
+  "binary",
+  "hex",
+  "arrows",
 ];
 
 export function findStyle(id) {
@@ -148,7 +160,8 @@ function renderLines({ lines, style, rotate, zoom, cols, rows, color }) {
           edges.push({ from: runStart, to: p, color: lineColor, weight: 2 });
           runStart = null;
         }
-        if (k === steps && runStart && runStart !== p) edges.push({ from: runStart, to: p, color: lineColor, weight: 2 });
+        if (k === steps && runStart && runStart !== p)
+          edges.push({ from: runStart, to: p, color: lineColor, weight: 2 });
       }
     }
     if (occlude) raiseHorizon(horizon, pts, bucket);

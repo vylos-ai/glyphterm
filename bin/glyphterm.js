@@ -7,7 +7,16 @@ import { renderFrame, STYLES, STYLE_IDS, PALETTES, findStyle } from "../src/rend
 import { THEME_NAMES, resolveTheme, tint } from "../src/themes.js";
 import { runViewer } from "../src/viewer.js";
 import { createCpuSampler } from "../src/cpu.js";
-import { wavePolygons, fieldLines, dataLines, resolveGradient, WAVE_VIEW, FIELD_VIEW, WAVEFORM_NAMES, GRADIENT_NAMES } from "../src/wave.js";
+import {
+  wavePolygons,
+  fieldLines,
+  dataLines,
+  resolveGradient,
+  WAVE_VIEW,
+  FIELD_VIEW,
+  WAVEFORM_NAMES,
+  GRADIENT_NAMES,
+} from "../src/wave.js";
 
 const HELP = `glyphterm: spin 3D models in your terminal, drawn with text.
 
@@ -191,9 +200,23 @@ if (once) {
   } else if (model === "field") lines = fieldLines({ ...options.wave, stops });
   else if (model === "wave") polygons = wavePolygons({ ...options.wave, color: theme.color ?? "#33ff66" });
   else polygons = tint(loaded.polygons, theme.color ?? (isFile ? null : "#e8e4d8"));
-  const frame = renderFrame({ ...options, polygons, lines, style: findStyle(options.style), cols, rows, color, glow: Boolean(loaded.animated) });
+  const frame = renderFrame({
+    ...options,
+    polygons,
+    lines,
+    style: findStyle(options.style),
+    cols,
+    rows,
+    color,
+    glow: Boolean(loaded.animated),
+  });
   // Trailing blanks carry no information for a reader; trim them in plain mode.
-  const text = color ? frame.join("\n") : frame.map((l) => l.trimEnd()).join("\n").replace(/^\n+|\n+$/g, "");
+  const text = color
+    ? frame.join("\n")
+    : frame
+        .map((l) => l.trimEnd())
+        .join("\n")
+        .replace(/^\n+|\n+$/g, "");
   process.stdout.write(text + "\n");
 } else {
   try {

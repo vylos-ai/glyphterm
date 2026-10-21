@@ -9,7 +9,9 @@
   "scripts": {
     "start": "node bin/glyphterm.js",
     "demo": "node bin/glyphterm.js torus --style halfblock",
-    "test": "node --test \"test/*.test.js\""
+    "test": "node --test \"test/*.test.js\"",
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write ."
   },
   "engines": {
     "node": ">=20"
@@ -18,5 +20,11 @@
   "dependencies": {
     "@glyphcss/core": "^0.3.1",
     "glyphcss": "^0.3.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.13.0",
+    "globals": "17.13.0",
+    "prettier": "3.9.10"
   }
 }

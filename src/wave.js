@@ -43,11 +43,24 @@ function shade(hex, amount) {
 
 function box(color, [x0, y0, z0], [x1, y1, z1]) {
   const v = [
-    [x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0],
-    [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1],
+    [x0, y0, z0],
+    [x1, y0, z0],
+    [x1, y1, z0],
+    [x0, y1, z0],
+    [x0, y0, z1],
+    [x1, y0, z1],
+    [x1, y1, z1],
+    [x0, y1, z1],
   ].map(scaled);
   // Counter-clockwise when seen from outside.
-  const faces = [[4, 5, 6, 7], [1, 0, 3, 2], [0, 4, 7, 3], [5, 1, 2, 6], [7, 6, 2, 3], [0, 1, 5, 4]];
+  const faces = [
+    [4, 5, 6, 7],
+    [1, 0, 3, 2],
+    [0, 4, 7, 3],
+    [5, 1, 2, 6],
+    [7, 6, 2, 3],
+    [0, 1, 5, 4],
+  ];
   return faces.map((f) => ({ vertices: f.map((i) => v[i]), color }));
 }
 
@@ -210,24 +223,26 @@ export function fieldLines({ time = 0, stops = GRADIENTS.synthwave, series = nul
 export function dataLines({ series, names = [], stops = GRADIENTS.synthwave, history, progress = 0, amplitude = 1 }) {
   const capacity = Math.max(2, history ?? Math.max(...series.map((s) => s.length)));
   const step = (2 * FIELD_HALF_WIDTH) / (capacity - 1);
-  return series.map((values, row) => {
-    const depth = series.length === 1 ? 0 : row / (series.length - 1);
-    const z = FIELD_HALF_DEPTH - 2 * FIELD_HALF_DEPTH * depth;
-    const points = [];
-    values.forEach((value, j) => {
-      const x = FIELD_HALF_WIDTH - (values.length - 1 - j + progress) * step;
-      if (x < -FIELD_HALF_WIDTH) return;
-      const y = Math.min(1.3, amplitude) * FIELD_PEAK * value;
-      points.push([x * FIELD_SCALE, (y - FIELD_PEAK / 2) * FIELD_SCALE, z * FIELD_SCALE]);
-    });
-    const latest = values.at(-1);
-    return {
-      points,
-      color: gradientAt(stops, depth),
-      label: names[row],
-      // Labels stay at the chart's left edge even while history is still short.
-      labelAt: [-FIELD_HALF_WIDTH * FIELD_SCALE, (-FIELD_PEAK / 2) * FIELD_SCALE, z * FIELD_SCALE],
-      value: latest === undefined ? undefined : `${Math.round(latest * 100)}%`,
-    };
-  }).filter((line) => line.points.length >= 2);
+  return series
+    .map((values, row) => {
+      const depth = series.length === 1 ? 0 : row / (series.length - 1);
+      const z = FIELD_HALF_DEPTH - 2 * FIELD_HALF_DEPTH * depth;
+      const points = [];
+      values.forEach((value, j) => {
+        const x = FIELD_HALF_WIDTH - (values.length - 1 - j + progress) * step;
+        if (x < -FIELD_HALF_WIDTH) return;
+        const y = Math.min(1.3, amplitude) * FIELD_PEAK * value;
+        points.push([x * FIELD_SCALE, (y - FIELD_PEAK / 2) * FIELD_SCALE, z * FIELD_SCALE]);
+      });
+      const latest = values.at(-1);
+      return {
+        points,
+        color: gradientAt(stops, depth),
+        label: names[row],
+        // Labels stay at the chart's left edge even while history is still short.
+        labelAt: [-FIELD_HALF_WIDTH * FIELD_SCALE, (-FIELD_PEAK / 2) * FIELD_SCALE, z * FIELD_SCALE],
+        value: latest === undefined ? undefined : `${Math.round(latest * 100)}%`,
+      };
+    })
+    .filter((line) => line.points.length >= 2);
 }
