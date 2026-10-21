@@ -6,19 +6,12 @@ import { readFileSync, writeFileSync, existsSync, watchFile, unwatchFile } from 
 import { dirname, resolve, isAbsolute } from "node:path";
 import { term, fg, bg, visibleLength } from "./ansi.js";
 import { loadModel, PRIMITIVE_NAMES, isPrimitive } from "./models.js";
-import { renderFrame, STYLES, PALETTES, findStyle } from "./render.js";
-import { THEME_NAMES, resolveTheme, tint } from "./themes.js";
+import { renderFrame, STYLES, STYLE_IDS, PALETTES, findStyle } from "./render.js";
+import { THEME_NAMES, PAPER, resolveTheme } from "./themes.js";
 import { createCpuSampler } from "./cpu.js";
-import {
-  wavePolygons,
-  fieldLines,
-  dataLines,
-  clampField,
-  defaultsFor,
-  WAVEFORM_NAMES,
-  GRADIENT_NAMES,
-  resolveGradient,
-} from "./wave.js";
+import { modelGeometry } from "./geometry.js";
+import { parseSettings, clamp, LIMITS } from "./settings.js";
+import { clampField, defaultsFor, WAVEFORM_NAMES, GRADIENT_NAMES, resolveGradient } from "./wave.js";
 
 const HEADER_BG = "#141414";
 const DIM = "#7a7a7a";
@@ -42,15 +35,15 @@ export async function runViewer(options) {
     lines: null,
     styleIdx: STYLES.indexOf(findStyle(options.style)),
     paletteIdx: PALETTES.indexOf(options.palette),
-    theme: resolveTheme(options.color),
+    theme: options.theme,
     ...initial,
     paused: false,
     time: 0,
     // Shared by the "wave" and "field" models; `lines` only matters for the field.
     wave: clampField({ ...defaultsFor(options.model), ...options.wave }),
-    gradient: resolveGradient(options.gradient ?? "synthwave"),
+    gradient: options.gradient,
     // What the field shows: "demo" signals or live "cpu" load per core.
-    data: options.data ?? "demo",
+    data: options.data,
     caption: "",
     message: "",
     messageIsError: false,
@@ -71,24 +64,13 @@ export async function runViewer(options) {
       if (token !== loadToken) return;
       state.source = source;
       state.model = model;
-      applyColors();
+      refreshGeometry();
       if (model.warnings.length) flash(model.warnings[0]);
     } catch (err) {
       flash(err.message, true);
     }
   }
 
-  function applyColors() {
-    if (!state.model) return;
-    if (state.model.animated) return animate();
-    state.lines = null;
-    // Primitives have no colors of their own; "original" shows them in paper white.
-    const color = state.theme.color ?? (isPrimitive(state.source) ? "#e8e4d8" : null);
-    state.polygons = tint(state.model.polygons, color);
-  }
-
-  // Animated models are rebuilt from the clock. The scope trace takes the
-  // theme color; the field takes its own gradient.
   let sampler = null;
 
   // The CPU sampler only runs while the field shows CPU data.
@@ -101,26 +83,29 @@ export async function runViewer(options) {
     }
   }
 
-  function animate() {
+  // Static models only change with the color; animated ones every frame.
+  function refreshGeometry() {
+    if (!state.model) return;
     syncSampler();
-    if (state.source === "field") {
-      state.polygons = [];
-      state.lines = sampler
-        ? dataLines({
-            series: sampler.series,
-            names: sampler.series.map((_, i) => `cpu${i}`),
-            history: sampler.history,
-            // Freezing stops the scroll; sampling continues in the background.
-            progress: state.paused ? 0 : sampler.progress(),
-            stops: state.gradient.stops,
-            amplitude: state.wave.amplitude,
-          })
-        : fieldLines({ time: state.time, stops: state.gradient.stops, ...state.wave });
-    } else {
-      state.lines = null;
-      state.polygons = wavePolygons({ time: state.time, color: state.theme.color ?? "#33ff66", ...state.wave });
-    }
+    const samples = sampler && {
+      series: sampler.series,
+      history: sampler.history,
+      // Freezing stops the scroll; sampling continues in the background.
+      progress: state.paused ? 0 : sampler.progress(),
+    };
+    Object.assign(
+      state,
+      modelGeometry(state.model, {
+        theme: state.theme,
+        stops: state.gradient.stops,
+        wave: state.wave,
+        time: state.time,
+        samples,
+      }),
+    );
   }
+
+  const accent = () => state.theme.color ?? PAPER;
 
   const isWave = () => Boolean(state.model?.animated);
   const isField = () => state.source === "field" && isWave();
@@ -159,47 +144,12 @@ export async function runViewer(options) {
       flash(`scene file: ${err.message}`, true);
       return;
     }
-    const problems = [];
-    if (typeof scene.style === "string") {
-      const style = findStyle(scene.style);
-      if (style) state.styleIdx = STYLES.indexOf(style);
-      else problems.push(`unknown style "${scene.style}"`);
-    }
-    if (typeof scene.palette === "string") {
-      if (PALETTES.includes(scene.palette)) state.paletteIdx = PALETTES.indexOf(scene.palette);
-      else problems.push(`unknown palette "${scene.palette}"`);
-    }
-    if (typeof scene.color === "string") {
-      const theme = resolveTheme(scene.color);
-      if (theme) state.theme = theme;
-      else problems.push(`unknown color "${scene.color}"`);
-    }
-    for (const key of ["yaw", "pitch", "zoom", "spin"]) {
-      if (Number.isFinite(scene[key])) state[key] = scene[key];
-    }
-    state.pitch = clampPitch(state.pitch);
-    state.zoom = clampZoom(state.zoom);
-    if (typeof scene.paused === "boolean") state.paused = scene.paused;
-    if (typeof scene.caption === "string") state.caption = scene.caption;
-    if (scene.wave && typeof scene.wave === "object") {
-      const { waveform, ...numbers } = scene.wave;
-      if (typeof waveform === "string") {
-        if (WAVEFORM_NAMES.includes(waveform)) state.wave.waveform = waveform;
-        else problems.push(`unknown waveform "${waveform}" (${WAVEFORM_NAMES.join(", ")})`);
-      }
-      for (const key of ["frequency", "amplitude", "speed", "lines"]) {
-        if (Number.isFinite(numbers[key])) state.wave[key] = numbers[key];
-      }
-      state.wave = clampField(state.wave);
-    }
-    if (typeof scene.data === "string") {
-      if (["demo", "cpu"].includes(scene.data)) state.data = scene.data;
-      else problems.push(`unknown data "${scene.data}" (demo, cpu)`);
-    }
-    if (scene.gradient !== undefined) {
-      const gradient = resolveGradient(scene.gradient);
-      if (gradient) state.gradient = gradient;
-      else problems.push(`unknown gradient (${GRADIENT_NAMES.join(", ")}, or a list of #rrggbb)`);
+    const { values, problems } = parseSettings(scene);
+    if (values.style) state.styleIdx = STYLE_IDS.indexOf(values.style);
+    if (values.palette) state.paletteIdx = PALETTES.indexOf(values.palette);
+    if (values.wave) state.wave = clampField({ ...state.wave, ...values.wave });
+    for (const key of ["theme", "gradient", "data", "yaw", "pitch", "zoom", "spin", "paused", "caption"]) {
+      if (key in values) state[key] = values[key];
     }
     if (problems.length) flash(`scene file: ${problems.join(", ")}`, true);
     else flash("scene updated");
@@ -209,7 +159,7 @@ export async function runViewer(options) {
         isPrimitive(scene.model) || isAbsolute(scene.model) ? scene.model : resolve(dirname(watchPath), scene.model);
       await setModel(source);
     } else {
-      applyColors();
+      refreshGeometry();
     }
   }
 
@@ -229,7 +179,6 @@ export async function runViewer(options) {
   }
 
   function header(cols) {
-    const accent = state.theme.color ?? "#e8e4d8";
     const style = STYLES[state.styleIdx];
     const info = [
       state.model?.name ?? "loading…",
@@ -254,7 +203,7 @@ export async function runViewer(options) {
     const gap = Math.max(1, cols - title.length - left.length - right.length);
     return bar(
       [
-        [title, accent],
+        [title, accent()],
         [left, "#d0d0d0"],
         [" ".repeat(gap), DIM],
         [right, DIM],
@@ -266,11 +215,7 @@ export async function runViewer(options) {
 
   function footer(cols) {
     if (state.message) {
-      return bar(
-        [[` ${state.message}`, state.messageIsError ? ERROR : (state.theme.color ?? "#e8e4d8")]],
-        cols,
-        HEADER_BG,
-      );
+      return bar([[` ${state.message}`, state.messageIsError ? ERROR : accent()]], cols, HEADER_BG);
     }
     const hints = sampler
       ? "d demo data · c gradient · ; ' height · space freeze · drag rotate · +- zoom · m model · q quit"
@@ -315,7 +260,7 @@ export async function runViewer(options) {
     }
     if (captionRows) {
       const text = [...` » ${state.caption}`].slice(0, cols).join("");
-      frame += term.moveTo(rows - 1, 1) + fg(state.theme.color ?? "#e8e4d8") + text + term.reset + term.clearToEol;
+      frame += term.moveTo(rows - 1, 1) + fg(accent()) + text + term.reset + term.clearToEol;
     }
     frame += term.moveTo(rows, 1) + footer(cols) + term.syncEnd;
     out.write(frame);
@@ -323,8 +268,8 @@ export async function runViewer(options) {
 
   // --- Input -----------------------------------------------------------
 
-  const clampPitch = (p) => Math.max(-89, Math.min(89, p));
-  const clampZoom = (z) => Math.max(0.2, Math.min(8, z));
+  const clampPitch = (p) => clamp(p, LIMITS.pitch);
+  const clampZoom = (z) => clamp(z, LIMITS.zoom);
 
   function onKey(key) {
     state.message = "";
@@ -379,7 +324,7 @@ export async function runViewer(options) {
         }
         const idx = THEME_NAMES.indexOf(state.theme.name);
         state.theme = resolveTheme(THEME_NAMES[cycle(THEME_NAMES.length, Math.max(0, idx), key === "c" ? 1 : -1)]);
-        applyColors();
+        refreshGeometry();
         break;
       }
       case "m":
@@ -395,7 +340,7 @@ export async function runViewer(options) {
         const step = key === "]" ? 1 : -1;
         if (isWave())
           state.wave = clampField({ ...state.wave, speed: Number((state.wave.speed + step * 0.25).toFixed(2)) });
-        else state.spin = Math.max(-720, Math.min(720, state.spin + step * 10));
+        else state.spin = clamp(state.spin + step * 10, LIMITS.spin);
         break;
       }
       case "w":
@@ -541,7 +486,7 @@ export async function runViewer(options) {
     last = now;
     if (!state.paused && !state.drag) state.yaw += state.spin * dt;
     if (!state.paused) state.time += dt;
-    if (isWave()) animate();
+    if (isWave()) refreshGeometry();
     state.fps = state.fps ? state.fps * 0.9 + (1 / Math.max(dt, 1e-3)) * 0.1 : options.fps;
     draw();
     timer = setTimeout(tick, Math.max(0, frameMs - (performance.now() - now)));

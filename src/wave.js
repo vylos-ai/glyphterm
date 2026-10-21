@@ -4,6 +4,7 @@
 // radius 1, matching the normalization of every other model.
 
 import { hexToRgb } from "./ansi.js";
+import { PHOSPHOR } from "./themes.js";
 
 export const WAVEFORMS = {
   sine: (u) => Math.sin(2 * Math.PI * u),
@@ -114,7 +115,7 @@ function trace(color, { waveform, frequency, amplitude }, phase) {
 }
 
 /** Full scene at `time` seconds; the trace scrolls `speed` periods per second. */
-export function wavePolygons({ time = 0, color = "#33ff66", ...settings }) {
+export function wavePolygons({ time = 0, color = PHOSPHOR, ...settings }) {
   const wave = clampWave({ ...WAVE_DEFAULTS, ...settings });
   return [...screen(color), ...trace(color, wave, time * wave.speed)];
 }

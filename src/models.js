@@ -5,7 +5,7 @@
 import { readFile } from "node:fs/promises";
 import { extname, basename, dirname, resolve } from "node:path";
 import * as core from "@glyphcss/core";
-import { wavePolygons } from "./wave.js";
+import { PAPER } from "./themes.js";
 
 const O = [0, 0, 0];
 
@@ -55,11 +55,11 @@ export function isPrimitive(name) {
 /** Load a model by primitive name or file path. Colors are applied later (see themes.js). */
 export async function loadModel(source) {
   if (ANIMATED.includes(source)) {
-    // Animated models are built per frame by the viewer; "field" is drawn as lines.
-    return { name: source, animated: true, polygons: source === "wave" ? wavePolygons({}) : [], warnings: [] };
+    // Animated models are rebuilt every frame (see geometry.js).
+    return { name: source, animated: true, polygons: [], warnings: [] };
   }
   if (isPrimitive(source)) {
-    return { name: source, polygons: normalize(PRIMITIVES[source]("#e8e4d8")), warnings: [] };
+    return { name: source, polygons: normalize(PRIMITIVES[source](PAPER)), warnings: [] };
   }
 
   const ext = extname(source).toLowerCase();

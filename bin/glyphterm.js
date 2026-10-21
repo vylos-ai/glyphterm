@@ -4,19 +4,13 @@
 import { parseArgs } from "node:util";
 import { loadModel, PRIMITIVE_NAMES, SUPPORTED_EXTENSIONS } from "../src/models.js";
 import { renderFrame, STYLES, STYLE_IDS, PALETTES, findStyle } from "../src/render.js";
-import { THEME_NAMES, resolveTheme, tint } from "../src/themes.js";
+import { THEME_NAMES } from "../src/themes.js";
+import { term } from "../src/ansi.js";
 import { runViewer } from "../src/viewer.js";
 import { createCpuSampler } from "../src/cpu.js";
-import {
-  wavePolygons,
-  fieldLines,
-  dataLines,
-  resolveGradient,
-  WAVE_VIEW,
-  FIELD_VIEW,
-  WAVEFORM_NAMES,
-  GRADIENT_NAMES,
-} from "../src/wave.js";
+import { modelGeometry } from "../src/geometry.js";
+import { parseSettings, viewDefaultsFor, clamp, LIMITS } from "../src/settings.js";
+import { WAVEFORM_NAMES, GRADIENT_NAMES } from "../src/wave.js";
 
 const HELP = `glyphterm: spin 3D models in your terminal, drawn with text.
 
@@ -130,50 +124,32 @@ const model = positionals[0] ?? "torus";
 const interactive = process.stdin.isTTY && process.stdout.isTTY;
 const once = args.once || !interactive;
 const color = Boolean(args.ansi || (!args.plain && process.stdout.isTTY && !process.env.NO_COLOR));
-// Without color, half-blocks are bare silhouettes; shaded ASCII carries the form.
-args.style ??= positionals[0] === "field" ? "braille" : once && !color ? "shade" : "halfblock";
-
-if (!findStyle(args.style)) fail(`unknown style "${args.style}" (${STYLE_IDS.join(", ")})`);
-if (!PALETTES.includes(args.glyphs)) fail(`unknown glyph palette "${args.glyphs}" (${PALETTES.join(", ")})`);
-
 const isFile = !PRIMITIVE_NAMES.includes(model);
-const colorName = args.color ?? (isFile ? "original" : "phosphor");
-const theme = resolveTheme(colorName);
-if (!theme) fail(`unknown color "${colorName}" (${THEME_NAMES.join(", ")}, or #rrggbb)`);
-
-if (args.waveform !== undefined && !WAVEFORM_NAMES.includes(args.waveform)) {
-  fail(`unknown waveform "${args.waveform}" (${WAVEFORM_NAMES.join(", ")})`);
-}
-if (args.data !== undefined && !["demo", "cpu"].includes(args.data)) fail(`unknown data "${args.data}" (demo, cpu)`);
-if (args.gradient !== undefined && !resolveGradient(args.gradient)) {
-  fail(`unknown gradient "${args.gradient}" (${GRADIENT_NAMES.join(", ")})`);
-}
 // Animated models have their own best view; explicit flags still win.
-const viewDefaults = { wave: WAVE_VIEW, field: FIELD_VIEW }[model] ?? { yaw: 30, pitch: 20, zoom: 1, spin: 40 };
+const view = viewDefaultsFor(model);
 
-const options = {
-  model,
-  style: args.style,
+const { values: settings, problems } = parseSettings({
+  // Without color, half-blocks are bare silhouettes; shaded ASCII carries the form.
+  style: args.style ?? (model === "field" ? "braille" : once && !color ? "shade" : "halfblock"),
   palette: args.glyphs,
-  color: theme.name,
-  yaw: number(args.yaw, "yaw", viewDefaults.yaw),
-  pitch: Math.max(-89, Math.min(89, number(args.pitch, "pitch", viewDefaults.pitch))),
-  zoom: Math.max(0.2, Math.min(8, number(args.zoom, "zoom", viewDefaults.zoom))),
-  spin: number(args.spin, "spin", viewDefaults.spin),
-  fps: Math.max(1, Math.min(120, number(args.fps, "fps", 30))),
-  watch: args.watch,
-  gradient: args.gradient,
-  data: args.data,
-  wave: Object.fromEntries(
-    Object.entries({
-      waveform: args.waveform,
-      frequency: number(args.frequency, "frequency"),
-      amplitude: number(args.amplitude, "amplitude"),
-      speed: number(args.scroll, "scroll"),
-      lines: number(args.lines, "lines"),
-    }).filter(([, v]) => v !== undefined),
-  ),
-};
+  color: args.color ?? (isFile ? "original" : "phosphor"),
+  gradient: args.gradient ?? "synthwave",
+  data: args.data ?? "demo",
+  yaw: number(args.yaw, "yaw", view.yaw),
+  pitch: number(args.pitch, "pitch", view.pitch),
+  zoom: number(args.zoom, "zoom", view.zoom),
+  spin: number(args.spin, "spin", view.spin),
+  wave: {
+    waveform: args.waveform,
+    frequency: number(args.frequency, "frequency"),
+    amplitude: number(args.amplitude, "amplitude"),
+    speed: number(args.scroll, "scroll"),
+    lines: number(args.lines, "lines"),
+  },
+});
+if (problems.length) fail(problems[0]);
+
+const options = { ...settings, model, fps: clamp(number(args.fps, "fps", 30), LIMITS.fps), watch: args.watch };
 
 if (once) {
   if (args.watch) fail("--watch needs an interactive terminal");
@@ -187,19 +163,20 @@ if (once) {
   } catch (err) {
     fail(err.message);
   }
-  let polygons = [];
-  let lines = null;
-  const stops = resolveGradient(args.gradient ?? "synthwave").stops;
-  if (model === "field" && args.data === "cpu") {
+  let samples = null;
+  if (model === "field" && options.data === "cpu") {
     // One frame needs some history: sample for a moment, then draw it across the full width.
     const sampler = createCpuSampler({ interval: 100 }).start();
     await new Promise((done) => setTimeout(done, 2000));
     sampler.stop();
-    const names = sampler.series.map((_, i) => `cpu${i}`);
-    lines = dataLines({ series: sampler.series, names, stops, amplitude: options.wave.amplitude ?? 1 });
-  } else if (model === "field") lines = fieldLines({ ...options.wave, stops });
-  else if (model === "wave") polygons = wavePolygons({ ...options.wave, color: theme.color ?? "#33ff66" });
-  else polygons = tint(loaded.polygons, theme.color ?? (isFile ? null : "#e8e4d8"));
+    samples = { series: sampler.series };
+  }
+  const { polygons, lines } = modelGeometry(loaded, {
+    theme: options.theme,
+    stops: options.gradient.stops,
+    wave: options.wave,
+    samples,
+  });
   const frame = renderFrame({
     ...options,
     polygons,
@@ -222,7 +199,7 @@ if (once) {
   try {
     await runViewer(options);
   } catch (err) {
-    process.stdout.write("\x1b[?1002l\x1b[?1006l\x1b[0m\x1b[?25h\x1b[?1049l");
+    process.stdout.write(term.mouseOff + term.reset + term.cursorShow + term.altScreenOff);
     fail(err.message);
   }
 }

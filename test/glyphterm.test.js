@@ -71,8 +71,10 @@ test("CLI --once prints a plain frame when piped", () => {
 
 test("wave model animates and honors its settings", async () => {
   const { wavePolygons, WAVEFORMS, clampWave } = await import("../src/wave.js");
-  const { polygons, animated } = await loadModel("wave");
-  assert.ok(animated && polygons.length > 0);
+  const { modelGeometry } = await import("../src/geometry.js");
+  const model = await loadModel("wave");
+  assert.ok(model.animated);
+  assert.ok(modelGeometry(model).polygons.length > 0);
   const traceY = (opts) =>
     wavePolygons({ color: "#33ff66", ...opts })
       .filter((p) => p.color === "#33ff66")
