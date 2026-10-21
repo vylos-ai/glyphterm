@@ -9,6 +9,7 @@ what was learned building it.
 ## Commands
 
 - `npm test`: node:test suite in `test/` (fast, no terminal needed)
+- `npm run lint`: ESLint + Prettier check; `npm run format` rewrites formatting
 - `node bin/glyphterm.js <model> [--style …] [--watch scene.json]`: interactive viewer
 - `node bin/glyphterm.js <model> --once --cols 80 --rows 24`: one frame to stdout. Plain
   text when piped, which is how an agent "sees" a render.
@@ -16,16 +17,22 @@ what was learned building it.
 
 ## Architecture
 
-| File               | Role                                                                               |
-| ------------------ | ---------------------------------------------------------------------------------- |
-| `bin/glyphterm.js` | CLI: arguments, per-model default views, `--once` path                             |
-| `src/viewer.js`    | Render loop, HUD, keyboard/mouse (SGR), scene-file watching, CPU sampler lifecycle |
-| `src/render.js`    | `renderFrame()`: view transform, lighting, styles, polyline/ridgeline renderer     |
-| `src/ansi.js`      | Escape codes, glyphcss HTML → ANSI (fg and bg), `overlayText()` for labels         |
-| `src/models.js`    | Primitives, mesh-file loading (OBJ+MTL/STL/glTF/VOX), normalization                |
-| `src/wave.js`      | Animated models: `wave` (oscilloscope) and `field` (ridgeline, demo or data)       |
-| `src/cpu.js`       | Per-core CPU load sampler (`os.cpus()`, cross-platform)                            |
-| `src/themes.js`    | Phosphor color themes and tinting                                                  |
+| File               | Role                                                                              |
+| ------------------ | --------------------------------------------------------------------------------- |
+| `bin/glyphterm.js` | CLI: argument parsing, `--once` path                                              |
+| `src/settings.js`  | Limits, per-model default views, `parseSettings()` shared by CLI flags and scene  |
+| `src/geometry.js`  | `modelGeometry()`: loaded model → colored polygons, or polylines for the field    |
+| `src/viewer.js`    | Interactive loop: terminal setup, model loading, CPU sampler, scene-file watching |
+| `src/state.js`     | The viewer state object and small helpers (`isField`, `accent`, `resetView`)      |
+| `src/input.js`     | Terminal input → key/mouse events → state changes; key table, returns effects     |
+| `src/scene.js`     | Scene file ⇄ state: `sceneSnapshot()`, `applyScene()`, model path resolution      |
+| `src/hud.js`       | Header, footer, caption and the full-frame composition                            |
+| `src/render.js`    | `renderFrame()`: view transform, lighting, styles, polyline/ridgeline renderer    |
+| `src/ansi.js`      | Escape codes, glyphcss HTML → ANSI (fg and bg), `overlayText()` for labels        |
+| `src/models.js`    | Primitives, mesh-file loading (OBJ+MTL/STL/glTF/VOX), normalization               |
+| `src/wave.js`      | Animated models: `wave` (oscilloscope) and `field` (ridgeline, demo or data)      |
+| `src/cpu.js`       | Per-core CPU load sampler (`os.cpus()`, cross-platform)                           |
+| `src/themes.js`    | Phosphor color themes, `PHOSPHOR`/`PAPER` constants, tinting                      |
 
 Data flow: model polygons (y-up, bounding radius 1) → `renderFrame` rotates them by
 yaw/pitch → glyphcss `rasterize()` → `<pre>` HTML → `htmlToLines` → ANSI lines → the
@@ -60,7 +67,10 @@ glyphcss explicit `wireframe` edges.
 
 ## Conventions
 
-- ES modules, no build step, no dependencies beyond glyphcss. Node ≥ 20.
+- ES modules, no build step, no runtime dependencies beyond glyphcss (Prettier and ESLint
+  are dev-only). Node ≥ 20.
+- Keep viewer logic out of `viewer.js` where possible: handlers in `input.js`, `scene.js` and
+  `hud.js` take the state object and return values, so `test/viewer.test.js` can cover them.
 - Every model is normalized to a bounding radius of 1 so one fit/zoom works for all.
 - Colors are `#rrggbb` everywhere. Gradients run front (index 0) to back.
 - Watch out for default parameters receiving `undefined`: `renderFrame({ color: undefined })`
