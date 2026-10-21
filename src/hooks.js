@@ -162,6 +162,8 @@ export const HOOK_EVENTS = [
   "PostToolUseFailure",
   "PermissionRequest",
   "Notification",
+  // Changes no activity, but brings a satellite home (see session.js).
+  "SubagentStop",
   "Stop",
   "StopFailure",
   "SessionEnd",

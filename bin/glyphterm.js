@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { resolve, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadModel, PRIMITIVE_NAMES, SUPPORTED_EXTENSIONS } from "../src/models.js";
-import { renderFrame, STYLES, STYLE_IDS, PALETTES, findStyle } from "../src/render.js";
+import { renderFrame, STYLES, STYLE_IDS, PALETTES, findStyle, paletteGlyphs } from "../src/render.js";
 import { THEME_NAMES } from "../src/themes.js";
 import { term } from "../src/ansi.js";
 import { runViewer } from "../src/viewer.js";
@@ -73,7 +73,8 @@ Avatar
       --hook            read a Claude Code hook event on stdin and set the matching activity,
                         plus the session's stats (tokens, tool calls) from its transcript
       --stats           show the stats line under the scene (i toggles it)
-      --context-limit <tokens>  the context window its meter fills up to (default: 200000)
+      --spectrum        show the spectrum analyzer of recent tool calls (e toggles it)
+      --context-limit <tokens>  the context window its meter fills up to (default: 1000000)
       --print-hooks     print the Claude Code settings that run --hook on every event
   The avatar's file is ${shellCommand([avatarFile()])}
   (GLYPHTERM_AVATAR or --watch choose another). error and done are short and end by themselves.
@@ -85,7 +86,7 @@ Other
 
 Keys
   drag / arrows / hjkl rotate · wheel / + - zoom · s style · g glyphs · c color
-  m next model · a next avatar · i stats · space pause · [ ] spin speed · 1-7 pick style · r reset · q quit
+  m next model · a next avatar · i stats · e spectrum · space pause · [ ] spin speed · 1-7 pick style · r reset · q quit
 `;
 
 function fail(message) {
@@ -121,6 +122,7 @@ try {
       gradient: { type: "string" },
       data: { type: "string" },
       stats: { type: "boolean" },
+      spectrum: { type: "boolean" },
       "context-limit": { type: "string" },
       once: { type: "boolean" },
       cols: { type: "string" },
@@ -272,6 +274,7 @@ const flags = defined({
   zoom: number(args.zoom, "zoom"),
   spin: number(args.spin, "spin"),
   stats: args.stats,
+  spectrum: args.spectrum,
   contextLimit: number(args["context-limit"], "context-limit"),
 });
 const flagWave = defined({
@@ -345,7 +348,7 @@ if (once) {
     wave: options.wave,
     samples,
     // A still of an avatar shows its activity's look, without the motion.
-    look: { activity: options.activity ?? "", age: 1 },
+    look: { activity: options.activity ?? "", age: 1, glyphs: paletteGlyphs(options.palette ?? "auto") },
   });
   const frame = renderFrame({
     ...options,

@@ -1,16 +1,17 @@
 // One frame: normalized polygons + view settings -> terminal lines.
 
-import { buildRasterizeContext, rasterize, createGlyphCamera } from "glyphcss";
+import { buildRasterizeContext, rasterize, createGlyphCamera, WIREFRAME_PALETTES } from "glyphcss";
 import { htmlToLines, overlayText, halfblockPixels, downsamplePixels, pixelsToLines, fg, term } from "./ansi.js";
 
-// Each style is one glyphcss render mode + character encoding.
+// Each style is one glyphcss render mode + character encoding. Only the ASCII
+// shade and wire use a glyph palette; the others have fixed characters.
 export const STYLES = [
-  { id: "shade", label: "ascii shade", mode: "solid", charMode: "ascii" },
+  { id: "shade", label: "ascii shade", mode: "solid", charMode: "ascii", glyphs: true },
   { id: "halfblock", label: "half-block", mode: "solid", charMode: "halfblock" },
   { id: "quadrant", label: "quadrant", mode: "solid", charMode: "quadrant" },
   // glyphcss's hidden-line pass drops visible edges in ASCII wireframes, so
   // that style is always x-ray; braille handles hidden lines well.
-  { id: "wire", label: "x-ray wire", mode: "wireframe", charMode: "ascii", hiddenLines: "show" },
+  { id: "wire", label: "x-ray wire", mode: "wireframe", charMode: "ascii", hiddenLines: "show", glyphs: true },
   { id: "braille", label: "braille wire", mode: "wireframe", charMode: "braille", hiddenLines: "hide" },
   { id: "xray", label: "braille x-ray", mode: "wireframe", charMode: "braille", hiddenLines: "show" },
   { id: "ink", label: "ink outline", mode: "ink", charMode: "ascii" },
@@ -35,6 +36,13 @@ export const PALETTES = [
   "hex",
   "arrows",
 ];
+
+/** A palette's characters for drawing with directly (the cloud), or null for "auto". */
+export function paletteGlyphs(name) {
+  const palette = name === "auto" ? null : WIREFRAME_PALETTES[name];
+  // The "core" glyphs include solid blocks, too heavy for loose particles.
+  return palette ? palette.normal : null;
+}
 
 export function findStyle(id) {
   return STYLES.find((s) => s.id === id);
@@ -196,15 +204,15 @@ function dim(hex, amount) {
 const FAR_GLYPH = "·";
 
 /**
- * Draw `points` ({ at, char, color, bright }) as characters, each in the cell
- * it projects to; nearer ones cover farther ones. Depth sets the brightness,
- * and the farthest shrink to a dot. The style doesn't apply: the characters
- * are the picture.
+ * Draw `points` ({ at, char, color, bright, keep }) as characters, each in the
+ * cell it projects to; nearer ones cover farther ones. Depth sets the
+ * brightness, and the farthest shrink to a dot unless they `keep` their
+ * character. The style doesn't apply: the characters are the picture.
  */
 function renderPoints({ points, place, zoom, cols, rows, color }) {
   const scale = ((0.92 * Math.min(cols, rows * 2)) / 2) * zoom;
   const cells = Array.from({ length: rows }, () => new Array(cols).fill(null));
-  for (const { at, char, color: hex, bright = 1 } of points) {
+  for (const { at, char, color: hex, bright = 1, keep = false } of points) {
     const [gx, gy, gz] = place(at);
     // Measured glyphcss projection (see the labels in renderLines).
     const [row, col] = [Math.floor(rows / 2 + (gx * scale) / 2), Math.floor(cols / 2 + gy * scale)];
@@ -213,7 +221,7 @@ function renderPoints({ points, place, zoom, cols, rows, color }) {
     const depth = Math.min(1, Math.max(0, (gz + 1) / 2));
     cells[row][col] = {
       z: gz,
-      char: gz < -0.45 ? FAR_GLYPH : char,
+      char: gz < -0.45 && !keep ? FAR_GLYPH : char,
       hex: dim(hex ?? "#e8e4d8", Math.min(1, bright * (0.5 + 0.65 * depth))),
     };
   }

@@ -5,12 +5,14 @@ import { PRIMITIVE_NAMES, isPrimitive } from "./models.js";
 import { PAPER } from "./themes.js";
 import { clampField, defaultsFor } from "./wave.js";
 import { CONTEXT_LIMIT } from "./session.js";
+import { findStyle } from "./render.js";
+import { createSignals, trackSession } from "./signals.js";
 
 /** `options` are the validated settings from the command line (see settings.js). */
 export function createState(options) {
   // The `m` key cycles through the starting model and every primitive.
   const sources = isPrimitive(options.model) ? PRIMITIVE_NAMES : [options.model, ...PRIMITIVE_NAMES];
-  return {
+  const state = {
     sources,
     sourceIdx: sources.indexOf(options.model),
     source: options.model,
@@ -44,6 +46,9 @@ export function createState(options) {
     // The stats line (toggled with i), the context window its meter fills up
     // to, and the agent session it shows, from the hooks.
     stats: options.stats ?? false,
+    // The spectrum analyzer (e), and the pings and satellites it and the avatar show (see signals.js).
+    spectrum: options.spectrum ?? false,
+    signals: createSignals(),
     contextLimit: options.contextLimit ?? CONTEXT_LIMIT,
     session: options.session ?? null,
     message: "",
@@ -51,6 +56,8 @@ export function createState(options) {
     fps: 0,
     drag: null,
   };
+  if (state.session) trackSession(state, state.session);
+  return state;
 }
 
 /** Back to the starting view and wave settings; colors and style stay. */
@@ -67,6 +74,15 @@ export function resetView(state, options) {
 
 export const isAnimated = (state) => Boolean(state.model?.animated);
 export const isField = (state) => state.source === "field" && isAnimated(state);
+
+/**
+ * Whether the glyph palette changes anything: the shade and wire styles use
+ * one, and the cloud draws its characters from it in any style.
+ */
+export const glyphsApply = (state) => onlyPoints(state) || Boolean(findStyle(state.style)?.glyphs);
+
+/** A model of points alone (the cloud), which ignores the style. */
+export const onlyPoints = (state) => Boolean(state.points?.length && !state.polygons?.length && !state.lines);
 
 /** The theme color, or paper white for "original". */
 export const accent = (state) => state.theme.color ?? PAPER;

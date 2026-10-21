@@ -7,7 +7,8 @@ import { fileURLToPath } from "node:url";
 import { STYLE_IDS, PALETTES } from "../src/render.js";
 import { THEME_NAMES } from "../src/themes.js";
 import { GRADIENT_NAMES, WAVEFORM_NAMES, WAVE_LIMITS, LINE_LIMITS } from "../src/wave.js";
-import { LIMITS, DATA_SOURCES } from "../src/settings.js";
+import { LIMITS, DATA_SOURCES, MAX_SATELLITES } from "../src/settings.js";
+import { TOOL_GROUP_IDS, RECENT_CALLS } from "../src/session.js";
 import { PRIMITIVE_NAMES, SUPPORTED_EXTENSIONS } from "../src/models.js";
 import { ACTIVITY_IDS } from "../src/avatar.js";
 
@@ -58,11 +59,15 @@ export function sceneSchema() {
           'error and done are short and return by themselves; "" clears it.',
       },
       stats: { type: "boolean", description: "Shows the stats line under the scene (the i key toggles it)." },
+      spectrum: {
+        type: "boolean",
+        description: "Shows the spectrum analyzer: recent tool calls by kind (the e key toggles it).",
+      },
       contextLimit: {
         type: "integer",
         minimum: LIMITS.contextLimit[0],
         maximum: LIMITS.contextLimit[1],
-        description: "The context window the stats line's meter fills up to (default 200000).",
+        description: "The context window the stats line's meter fills up to (default 1000000).",
       },
       session: {
         type: "object",
@@ -80,6 +85,35 @@ export function sceneSchema() {
           output: { type: "integer", minimum: 0, description: "Output tokens so far, subagents included." },
           tools: { type: "integer", minimum: 0, description: "Tool calls so far, subagents included." },
           failed: { type: "integer", minimum: 0, description: "Tool calls that came back as errors." },
+          calls: {
+            type: "array",
+            maxItems: RECENT_CALLS,
+            description:
+              'The latest tool calls, oldest first: [time in ms, tool group, failed 0 or 1, subagent id or ""].',
+            items: {
+              type: "array",
+              prefixItems: [
+                { type: "integer", minimum: 0 },
+                { enum: TOOL_GROUP_IDS },
+                { enum: [0, 1] },
+                { type: "string" },
+              ],
+              items: false,
+            },
+          },
+          satellites: {
+            type: "array",
+            maxItems: MAX_SATELLITES,
+            description: "Subagents still running, drawn as satellites: [id, start time in ms].",
+            items: {
+              type: "array",
+              prefixItems: [
+                { type: "string", minLength: 1 },
+                { type: "integer", minimum: 0 },
+              ],
+              items: false,
+            },
+          },
           agents: { type: "integer", minimum: 0, description: "Subagents started." },
           seconds: { type: "integer", minimum: 0, description: "Time from the first reply to the latest." },
         },

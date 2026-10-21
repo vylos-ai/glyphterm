@@ -14,6 +14,7 @@ import { sceneSnapshot, sceneModelName, applyScene, sceneModel, statusPath } fro
 import { parseInput, handleKey, handleMouse } from "./input.js";
 import { composeFrame, sceneRows } from "./hud.js";
 import { activityMotion, avatarLook, smoothMotion } from "./avatar.js";
+import { withSignals } from "./signals.js";
 
 export async function runViewer(options) {
   const out = process.stdout;
@@ -58,17 +59,16 @@ export async function runViewer(options) {
       // Freezing stops the scroll; sampling continues in the background.
       progress: state.paused ? 0 : sampler.progress(),
     };
-    Object.assign(
-      state,
-      modelGeometry(state.model, {
-        theme: state.theme,
-        stops: state.gradient.stops,
-        wave: state.wave,
-        time: state.time,
-        samples,
-        look: state.model.posable ? avatarLook(state) : undefined,
-      }),
-    );
+    const geometry = modelGeometry(state.model, {
+      theme: state.theme,
+      stops: state.gradient.stops,
+      wave: state.wave,
+      time: state.time,
+      samples,
+      look: state.model.posable ? avatarLook(state) : undefined,
+    });
+    // Avatars also show the session's tool calls and subagents.
+    Object.assign(state, state.model.posable ? withSignals(geometry, state.signals, state.time) : geometry);
   }
 
   // --- Scene file (agent interface) ------------------------------------

@@ -131,11 +131,15 @@
       "type": "boolean",
       "description": "Shows the stats line under the scene (the i key toggles it)."
     },
+    "spectrum": {
+      "type": "boolean",
+      "description": "Shows the spectrum analyzer: recent tool calls by kind (the e key toggles it)."
+    },
     "contextLimit": {
       "type": "integer",
       "minimum": 10000,
       "maximum": 10000000,
-      "description": "The context window the stats line's meter fills up to (default 200000)."
+      "description": "The context window the stats line's meter fills up to (default 1000000)."
     },
     "session": {
       "type": "object",
@@ -170,6 +174,61 @@
           "type": "integer",
           "minimum": 0,
           "description": "Tool calls that came back as errors."
+        },
+        "calls": {
+          "type": "array",
+          "maxItems": 48,
+          "description": "The latest tool calls, oldest first: [time in ms, tool group, failed 0 or 1, subagent id or \"\"].",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "integer",
+                "minimum": 0
+              },
+              {
+                "enum": [
+                  "read",
+                  "find",
+                  "edit",
+                  "write",
+                  "bash",
+                  "web",
+                  "agent",
+                  "other"
+                ]
+              },
+              {
+                "enum": [
+                  0,
+                  1
+                ]
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "items": false
+          }
+        },
+        "satellites": {
+          "type": "array",
+          "maxItems": 8,
+          "description": "Subagents still running, drawn as satellites: [id, start time in ms].",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "integer",
+                "minimum": 0
+              }
+            ],
+            "items": false
+          }
         },
         "agents": {
           "type": "integer",

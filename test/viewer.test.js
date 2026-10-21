@@ -11,6 +11,7 @@ import { createState } from "../src/state.js";
 import { parseInput, handleKey, handleMouse } from "../src/input.js";
 import { sceneSnapshot, applyScene, sceneModel } from "../src/scene.js";
 import { header, footer, composeFrame } from "../src/hud.js";
+import { avatarGeometry, avatarLook } from "../src/avatar.js";
 
 /** Viewer options as the CLI builds them, for `model` with its default view. */
 function optionsFor(model) {
@@ -165,13 +166,43 @@ test("scene: model paths are relative to the scene file", async () => {
   assert.equal(sceneModel(state, { model: "/b/x.obj" }, "/a/scene.json"), "/b/x.obj");
 });
 
+test("g only works where the glyphs show: the shade and wire styles, and the cloud in any style", async () => {
+  const { state } = await stateFor("torus");
+  assert.equal(handleKey(state, "g", {}), null, "half-block has fixed characters: g does nothing");
+  assert.equal(state.palette, "auto");
+  assert.doesNotMatch(footer(state, 200, null), /g glyphs/, "and isn't offered");
+  state.style = "wire";
+  assert.equal(handleKey(state, "g", {}), "changed");
+  assert.equal(state.palette, "ascii");
+  assert.match(footer(state, 200, null), /g glyphs/);
+
+  // The cloud is points only: it draws its characters from the palette, whatever the style.
+  Object.assign(state, { style: "halfblock", polygons: [], points: [{ at: [0, 0, 0], char: "*" }] });
+  assert.equal(handleKey(state, "g", {}), "changed");
+  assert.equal(state.message, "");
+  // The style doesn't show on the cloud, so s and the number keys do nothing there.
+  assert.deepEqual([handleKey(state, "s", {}), handleKey(state, "4", {}), state.style], [null, null, "halfblock"]);
+  assert.doesNotMatch(footer(state, 200, null), /s style/);
+  assert.doesNotMatch(header(state, 200, null), /half-block/);
+  state.palette = "binary";
+  const { points } = avatarGeometry("cloud", { ...avatarLook(state), activity: "waiting" }, 1);
+  assert.deepEqual([...new Set(points.map((p) => p.char))].sort(), ["0", "1"]);
+});
+
 test("hud: bars fill the width exactly and show messages and captions", async () => {
   const { state } = await stateFor("torus");
   for (const cols of [20, 80, 200]) {
     assert.equal(visibleLength(header(state, cols, null)), cols);
     assert.equal(visibleLength(footer(state, cols, null)), cols);
   }
-  assert.match(header(state, 200, null), /torus · half-block · glyphs:auto · phosphor · spin 40°\/s/);
+  assert.match(
+    header(state, 200, null),
+    /torus · half-block · phosphor · spin 40°\/s/,
+    "no glyphs: half-block ignores them",
+  );
+  state.style = "shade";
+  assert.match(header(state, 200, null), /torus · ascii shade · glyphs:auto · phosphor/);
+  state.style = "halfblock";
   state.message = "scene updated";
   assert.match(footer(state, 80, null), /scene updated/);
 

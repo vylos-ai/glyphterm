@@ -33,20 +33,21 @@ Or try it without installing: `npx github:vylos-ai/glyphterm`. From a clone, run
 
 ### Controls
 
-| Input                      | Action                                                              |
-| -------------------------- | ------------------------------------------------------------------- |
-| mouse drag, arrows, `hjkl` | rotate                                                              |
-| mouse wheel, `+` / `-`     | zoom                                                                |
-| `s` / `S`, `1`–`7`         | next / previous / pick style                                        |
-| `g` / `G`                  | glyph palette (ascii, lines, blocks, runes, hex, …)                 |
-| `c` / `C`                  | color: phosphor, amber, cyan, magenta, ice, paper, original         |
-| `m` / `M`                  | next / previous model                                               |
-| `a` / `A`                  | next / previous avatar (cloud, core, buddy), each with its own view |
-| `i`                        | show / hide the agent's session stats (see below)                   |
-| `space`                    | pause auto-rotation                                                 |
-| `[` / `]`                  | spin slower / faster                                                |
-| `r`                        | reset view                                                          |
-| `q`, `Esc`, `Ctrl-C`       | quit                                                                |
+| Input                      | Action                                                                  |
+| -------------------------- | ----------------------------------------------------------------------- |
+| mouse drag, arrows, `hjkl` | rotate                                                                  |
+| mouse wheel, `+` / `-`     | zoom                                                                    |
+| `s` / `S`, `1`–`7`         | next / previous / pick style                                            |
+| `g` / `G`                  | glyph palette (runes, binary, stars, hex, …): shade, wire and the cloud |
+| `c` / `C`                  | color: phosphor, amber, cyan, magenta, ice, paper, original             |
+| `m` / `M`                  | next / previous model                                                   |
+| `a` / `A`                  | next / previous avatar (cloud, core, buddy), each with its own view     |
+| `i`                        | show / hide the agent's session stats (see below)                       |
+| `e`                        | show / hide the spectrum analyzer of the agent's tool calls             |
+| `space`                    | pause auto-rotation                                                     |
+| `[` / `]`                  | spin slower / faster                                                    |
+| `r`                        | reset view                                                              |
+| `q`, `Esc`, `Ctrl-C`       | quit                                                                    |
 
 ### Styles
 
@@ -191,7 +192,8 @@ old one, so it regroups rather than switching: clusters that gather and part whi
 thinking, a stream flowing inward while reading, rows of code scrolling up while coding, a
 fast vortex while running, a question mark when it needs you, a scatter on an error, an
 even sphere when done, dust settling while asleep. Nearer characters are brighter; the
-farthest shrink to dots. The **core** changes its form and color with each activity, snapping to the new form with a
+farthest shrink to dots. Press `g` to draw it with a glyph palette instead: a cloud of
+binary digits, runes, stars or braille. The **core** changes its form and color with each activity, snapping to the new form with a
 flash, while a ring orbits it: thinking is a violet dodecahedron, coding a fast-spinning
 green cuboctahedron, needs-you a bouncing magenta octahedron, an error a red star, done a
 gold ball. The **buddy** acts them out with its arms, legs and the eyes on its screen. Each
@@ -243,15 +245,41 @@ and subagents so far (subagents included), and how long the session has run:
 
 The meter is a row of LED segments like an 80s equalizer: green, amber from 60% and red from
 85% of the context window, so the lit segments reach red as the session nears compaction.
-Each segment is a round number of tokens (5k for 200k in 40 segments); it takes the room
+Each segment is a round number of tokens (25k for 1M in 40 segments); it takes the room
 the other numbers leave and is left out when there's too little. The transcript doesn't
 say how large the window is, so set it with `--context-limit` or `"contextLimit"` in the
-scene (default 200000; use 1000000 for a 1M window). A low cache share means slower, more
+scene (default 1000000, the window of the current Claude models; set it lower for a model with a smaller one). A low cache share means slower, more
 expensive requests, such as after a long pause.
 
 The hooks read them from the session's transcript and write them to the avatar file as
 `session`, next to `stats` (whether the line shows). The line works with any model in the
 viewer, as long as something writes `session` to its scene file.
+
+**Tool calls and subagents.** The avatar also shows what the hooks report beyond the
+activity:
+
+- **A ping for every tool call:** a ring that spreads from the avatar and fades, like a
+  sonar pulse. A failed call pings again, in red. Calls a subagent makes ping from its
+  satellite.
+- **A satellite for every running subagent:** it launches from the avatar, orbits it on a
+  tilted path of its own, and returns when the subagent finishes. On the cloud it is a
+  cluster of characters, on the core and the buddy a small octahedron.
+- **A spectrum analyzer** (`e`, or `--spectrum`): a bar of LED segments per kind of tool
+  (read, find, edit, write, bash, web, agent, other), lit by its calls of the last seconds
+  and falling back while the agent waits. A peak marker holds where the bar was and falls
+  more slowly, so it shows what was busy lately; a name turns red after a failed call.
+
+```
+ ▄▄▄▄▄ ▄▄▄▄▄ ▄▄▄▄▄ ▄▄▄▄▄ ▄▄▄▄▄ ▄▄▄▄▄ ▄▄▄▄▄ ▄▄▄▄▄
+ ▄▄▄▄▄ ▄▄▄▄▄ ▄▄▄▄▄ ▄▄▄▄▄ ▄▄▄▄▄ ▄▄▄▄▄ ▄▄▄▄▄ ▄▄▄▄▄
+ READ  FIND  EDIT  WRITE BASH  WEB   AGENT OTHER
+```
+
+The hooks write them to the avatar file as `session.calls` (the latest 48) and
+`session.satellites`; a subagent counts as running until its transcript's `meta.json` says
+it finished. Satellites come home on the `SubagentStop` hook, so print the hooks again
+(`glyphterm avatar --print-hooks`) if you installed them before it was added. Rings in the
+core's and buddy's background need the half-block style.
 
 ## How it works
 
@@ -275,6 +303,7 @@ mesh file / primitive ──► normalize (center, radius 1, y-up)
 - `src/cloud-avatar.js`: the cloud avatar: a particle formation per activity, regrouping between them
 - `src/hooks.js`: `glyphterm avatar`: its file, and Claude Code hook events → activities
 - `src/session.js`: session stats (tokens, tool calls) from a Claude Code transcript
+- `src/signals.js`: pings, satellites and the spectrum analyzer from the session's tool calls
 - `bin/glyphterm.js`: CLI
 
 Notes:

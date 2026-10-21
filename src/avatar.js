@@ -6,6 +6,7 @@
 
 import { corePolygons, CORE_FLOOR } from "./core-avatar.js";
 import { cloudPoints } from "./cloud-avatar.js";
+import { paletteGlyphs } from "./render.js";
 
 /** How long the viewer may sit at "waiting" before the avatar falls asleep, in seconds. */
 export const SLEEP_AFTER = 300;
@@ -351,14 +352,16 @@ export const DEFAULT_AVATAR = "cloud";
  */
 export function avatarLook(state, time = state.time) {
   const activity = currentActivity(state, time) ?? "";
+  // The cloud draws with the glyph palette's characters.
+  const glyphs = paletteGlyphs(state.palette ?? "auto");
   if (activity === "sleeping" && state.activity === "waiting") {
-    return { activity, previous: "waiting", age: time - state.activitySince - SLEEP_AFTER };
+    return { activity, previous: "waiting", age: time - state.activitySince - SLEEP_AFTER, glyphs };
   }
-  return { activity, previous: state.activityShown ?? "", age: time - state.activitySince };
+  return { activity, previous: state.activityShown ?? "", age: time - state.activitySince, glyphs };
 }
 
 /** An avatar's geometry for `look` at time `t`: { polygons, points, underlay }. */
 export function avatarGeometry(name, look = {}, t = 0) {
-  const { activity = "", previous = "", age = Infinity } = look;
-  return { polygons: [], points: null, underlay: null, ...AVATARS[name].build({ activity, previous, age }, t) };
+  const { activity = "", previous = "", age = Infinity, glyphs = null } = look;
+  return { polygons: [], points: null, underlay: null, ...AVATARS[name].build({ activity, previous, age, glyphs }, t) };
 }

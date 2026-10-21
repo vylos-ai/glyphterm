@@ -158,8 +158,8 @@ const GLYPHS = {
   loose: "·.:+*~^°abcdefghijklmnopqrstuvwxyz{}<>=/\\|0123456789",
 };
 
-function glyph(i, t, activity) {
-  const set = activity === "coding" ? GLYPHS.code : activity === "writing" ? GLYPHS.prose : GLYPHS.loose;
+function glyph(i, t, activity, chars) {
+  const set = chars ?? (activity === "coding" ? GLYPHS.code : activity === "writing" ? GLYPHS.prose : GLYPHS.loose);
   // Each character changes now and then, at its own pace.
   const tick = Math.floor(t * (0.3 + rand(i, 22) * 0.7) + rand(i, 23) * 10);
   return set[Math.floor(rand(i, tick + 30) * set.length)];
@@ -169,10 +169,16 @@ const TRANSITION = 0.9; // seconds for a particle to reach its new formation
 const STAGGER = 0.45; // spread of the particles' start times
 
 /**
- * The cloud for `look` ({ activity, previous, age }) at time `t`: COUNT
- * points `{ at, char, color, bright }`. `colorOf(activity)` gives the color.
+ * The cloud for `look` ({ activity, previous, age, glyphs }) at time `t`:
+ * COUNT points `{ at, char, color, bright }`. `colorOf(activity)` gives the
+ * color. `glyphs`, a list of characters (a glyph palette), replaces the
+ * cloud's own: code while coding, letters while writing.
  */
-export function cloudPoints({ activity = "", previous = "", age = Infinity } = {}, t = 0, colorOf = () => null) {
+export function cloudPoints(
+  { activity = "", previous = "", age = Infinity, glyphs = null } = {},
+  t = 0,
+  colorOf = () => null,
+) {
   const now = FORMATIONS[activity] ?? FORMATIONS.waiting;
   const before = FORMATIONS[previous];
   const fast = activity === "error"; // a jolt, not a drift
@@ -183,11 +189,11 @@ export function cloudPoints({ activity = "", previous = "", age = Infinity } = {
   return BASE.map((_, i) => {
     const target = now(i, t);
     const mix = before ? smoothstep((age - rand(i, 24) * stagger) / duration) : 1;
-    if (mix >= 1) return { at: target.at, char: glyph(i, t, activity), color, bright: target.bright };
+    if (mix >= 1) return { at: target.at, char: glyph(i, t, activity, glyphs), color, bright: target.bright };
     const from = before(i, t);
     return {
       at: from.at.map((v, k) => v + (target.at[k] - v) * mix),
-      char: glyph(i, t, mix < 0.5 ? previous : activity),
+      char: glyph(i, t, mix < 0.5 ? previous : activity, glyphs),
       color: mix < 0.5 ? beforeColor : color,
       bright: from.bright + (target.bright - from.bright) * mix,
     };

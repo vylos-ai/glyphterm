@@ -61,11 +61,11 @@ const MAIN = [
     usage(10, 0, 5000, 300),
     [
       { type: "text", text: "hi" },
-      { type: "tool_use", id: "t1" },
+      { type: "tool_use", id: "t1", name: "Read" },
     ],
     "2026-10-21T10:00:00Z",
   ),
-  reply("m2", usage(2, 5000, 800, 120), [{ type: "tool_use", id: "t2" }], "2026-10-21T10:05:30Z"),
+  reply("m2", usage(2, 5000, 800, 120), [{ type: "tool_use", id: "t2", name: "Bash" }], "2026-10-21T10:05:30Z"),
   JSON.stringify({
     type: "user",
     message: { content: [{ type: "tool_result", tool_use_id: "t2", is_error: true, content: "Exit code 1" }] },
@@ -86,15 +86,36 @@ test("stats come from the transcript: replies counted once, subagents included",
     failed: 1,
     agents: 0,
     seconds: 330,
+    calls: [
+      [Date.parse("2026-10-21T10:00:00Z"), "read", 0, ""],
+      [Date.parse("2026-10-21T10:05:30Z"), "bash", 1, ""],
+    ],
+    satellites: [],
   });
 
   mkdirSync(join(tmp, "main", "subagents"), { recursive: true });
   writeFileSync(
     join(tmp, "main", "subagents", "agent-a.jsonl"),
-    reply("s1", usage(5, 0, 900, 80), [{ type: "tool_use", id: "t9" }], "2026-10-21T10:01:00Z").join("\n"),
+    reply("s1", usage(5, 0, 900, 80), [{ type: "tool_use", id: "t9", name: "Grep" }], "2026-10-21T10:01:00Z").join(
+      "\n",
+    ),
   );
   const stats = sessionStats(path);
   assert.deepEqual([stats.output, stats.tools, stats.agents, stats.context, stats.cache], [500, 3, 1, 5802, 43]);
+  assert.deepEqual(
+    stats.calls[1],
+    [Date.parse("2026-10-21T10:01:00Z"), "find", 0, "a"],
+    "in time order, with the agent",
+  );
+  assert.deepEqual(stats.satellites, [], "no meta file: not known to run");
+
+  // A subagent runs while its meta file says it hasn't finished and its transcript is fresh.
+  const meta = join(tmp, "main", "subagents", "agent-a.meta.json");
+  writeFileSync(meta, JSON.stringify({ finished: false }));
+  assert.deepEqual(sessionStats(path).satellites, [["a", Date.parse("2026-10-21T10:01:00Z")]]);
+  assert.deepEqual(sessionStats(path, Date.now() + 11 * 60_000).satellites, [], "stale after 10 minutes");
+  writeFileSync(meta, JSON.stringify({ finished: true }));
+  assert.deepEqual(sessionStats(path).satellites, []);
 
   assert.equal(sessionStats(join(tmp, "missing.jsonl")), null);
   assert.equal(sessionStats(undefined), null);
@@ -176,6 +197,8 @@ test("i toggles the stats line, which the scene file keeps along with the sessio
 
 test("the stats line fills the width and takes a row from the scene", () => {
   const state = torusState();
+  assert.equal(state.contextLimit, 1_000_000, "the window of the current models");
+  state.contextLimit = 200_000;
   assert.equal(sceneRows(state, 24), 22);
   state.stats = true;
   assert.equal(sceneRows(state, 24), 21);

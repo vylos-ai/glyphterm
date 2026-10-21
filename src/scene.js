@@ -8,6 +8,7 @@ import { parseSettings, unknownSceneKeys } from "./settings.js";
 import { clampField } from "./wave.js";
 import { isAnimated, isField } from "./state.js";
 import { setActivity } from "./avatar.js";
+import { trackSession } from "./signals.js";
 
 /**
  * How a scene file names `source`: primitives by name, files relative to the
@@ -34,6 +35,7 @@ export function sceneSnapshot(state, scenePath) {
     caption: state.caption,
     ...(state.activity && { activity: state.activity }),
     stats: state.stats,
+    spectrum: state.spectrum,
     contextLimit: state.contextLimit,
     ...(state.session && { session: state.session }),
     ...(isAnimated(state) && { wave: { ...state.wave } }),
@@ -53,6 +55,7 @@ export function applyScene(state, scene) {
   const { values, problems } = parseSettings(scene);
   const { wave, activity, ...plain } = values;
   Object.assign(state, plain);
+  if (plain.session) trackSession(state, plain.session);
   if (wave) state.wave = clampField({ ...state.wave, ...wave });
   // Other edits to the file leave a running activity alone.
   if (activity !== undefined && activity !== state.sceneActivity) {

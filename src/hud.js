@@ -2,9 +2,10 @@
 
 import { term, fg, bg, visibleLength } from "./ansi.js";
 import { findStyle } from "./render.js";
-import { isAnimated, isField, accent } from "./state.js";
+import { isAnimated, isField, accent, glyphsApply, onlyPoints } from "./state.js";
 import { ACTIVITIES, currentActivity } from "./avatar.js";
 import { sessionFields, contextMeter, meterColor } from "./session.js";
+import { spectrumBars, segmentColor, SPECTRUM_SEGMENTS } from "./signals.js";
 
 const HEADER_BG = "#141414";
 const TEXT = "#d0d0d0";
@@ -44,8 +45,10 @@ export function header(state, cols, cpu) {
   }
   const info = [
     state.model?.name ?? "loading…",
-    findStyle(state.style).label,
-    `glyphs:${state.palette}`,
+    // The cloud ignores the style.
+    ...(onlyPoints(state) ? [] : [findStyle(state.style).label]),
+    // Left out where it would change nothing (g says why).
+    ...(glyphsApply(state) ? [`glyphs:${state.palette}`] : []),
     isField(state) ? `gradient:${state.gradient.name}` : state.theme.name,
     ...status,
   ].join(" · ");
@@ -70,7 +73,7 @@ const HINTS = {
     "d cpu data · c gradient · w waveform · , . frequency · ; ' amplitude · { } lines · [ ] scroll · space freeze · drag rotate · m model · q quit",
   wave: "w waveform · , . frequency · ; ' amplitude · [ ] scroll · space freeze · drag rotate · c color · m model · q quit",
   model:
-    "drag/←↑↓→ rotate · wheel/+- zoom · s style · g glyphs · c color · m model · a avatar · i stats · space pause · [ ] speed · r reset · q quit",
+    "drag/←↑↓→ rotate · wheel/+- zoom · s style · g glyphs · c color · m model · a avatar · i stats · e spectrum · space pause · [ ] speed · r reset · q quit",
 };
 
 /** The last message, or the keys that matter for the current model. */
@@ -78,7 +81,9 @@ export function footer(state, cols, cpu) {
   if (state.message) {
     return bar([[` ${state.message}`, state.messageIsError ? ERROR : accent(state)]], cols, HEADER_BG);
   }
-  const hints = cpu ? HINTS.cpu : isField(state) ? HINTS.field : isAnimated(state) ? HINTS.wave : HINTS.model;
+  let hints = cpu ? HINTS.cpu : isField(state) ? HINTS.field : isAnimated(state) ? HINTS.wave : HINTS.model;
+  if (!glyphsApply(state)) hints = hints.replace("g glyphs · ", "");
+  if (onlyPoints(state)) hints = hints.replace("s style · ", "");
   return bar([[` ${hints}`, DIM]], cols, HEADER_BG);
 }
 
@@ -116,20 +121,55 @@ export function statsLine(state, cols) {
   return bar(segments, cols);
 }
 
+/**
+ * The spectrum analyzer: a bar of LED segments per tool group, lit by its
+ * recent calls, with a peak marker that holds and falls, and the group's
+ * name under it (red after a failed call). Centered; SPECTRUM_ROWS lines.
+ */
+export function spectrumRows(state, cols, now = Date.now()) {
+  const bars = spectrumBars(state, now);
+  // Bars are 5 cells wide with a gap, narrower when the screen is.
+  const width = Math.max(1, Math.min(5, Math.floor((cols - 2) / bars.length) - 1));
+  const left = " ".repeat(Math.max(0, Math.floor((cols - bars.length * (width + 1) + 1) / 2)));
+  const rows = [];
+  for (let level = SPECTRUM_SEGMENTS - 1; level >= 0; level--) {
+    const segments = [[left, DIM]];
+    bars.forEach(({ lit, top }, i) => {
+      const on = level < lit || level === top - 1;
+      segments.push([(i ? " " : "") + "▄".repeat(width), segmentColor(level, on)]);
+    });
+    rows.push(bar(segments, cols));
+  }
+  const labels = [[left, DIM]];
+  bars.forEach(({ label, failed }, i) => {
+    labels.push([(i ? " " : "") + label.slice(0, width).padEnd(width), failed ? ERROR : DIM]);
+  });
+  rows.push(bar(labels, cols));
+  return rows;
+}
+
+export const SPECTRUM_ROWS = SPECTRUM_SEGMENTS + 1;
+
 const hasCaptionLine = (state) => Boolean(state.caption || state.activity);
-const extraRows = (state) => (hasCaptionLine(state) ? 1 : 0) + (state.stats ? 1 : 0);
+const extraRows = (state) =>
+  (hasCaptionLine(state) ? 1 : 0) + (state.stats ? 1 : 0) + (state.spectrum ? SPECTRUM_ROWS : 0);
 
 /** Rows left for the scene between the header, the optional stats and caption lines and the footer. */
 export const sceneRows = (state, rows) => Math.max(1, rows - 2 - extraRows(state));
 
 /** The whole screen as one write, painted at once with synchronized output. */
-export function composeFrame(state, scene, cols, rows, cpu) {
+export function composeFrame(state, scene, cols, rows, cpu, now = Date.now()) {
   let frame = term.syncStart + term.moveTo(1, 1) + header(state, cols, cpu);
   for (let r = 0; r < sceneRows(state, rows); r++) {
     const line = scene[r] ?? "";
     frame += term.moveTo(r + 2, 1) + line + term.reset + (visibleLength(line) < cols ? term.clearToEol : "");
   }
-  if (state.stats) frame += term.moveTo(rows - extraRows(state), 1) + statsLine(state, cols);
+  // Under the scene, top to bottom: the spectrum, the stats line, the caption.
+  let row = rows - extraRows(state);
+  if (state.spectrum) {
+    for (const line of spectrumRows(state, cols, now)) frame += term.moveTo(row++, 1) + line;
+  }
+  if (state.stats) frame += term.moveTo(row, 1) + statsLine(state, cols);
   if (hasCaptionLine(state)) frame += term.moveTo(rows - 1, 1) + (captionLine(state, cols) ?? term.clearToEol);
   return frame + term.moveTo(rows, 1) + footer(state, cols, cpu) + term.syncEnd;
 }

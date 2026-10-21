@@ -5,7 +5,7 @@ import { STYLE_IDS, PALETTES } from "./render.js";
 import { THEME_NAMES, resolveTheme } from "./themes.js";
 import { WAVEFORM_NAMES, GRADIENT_NAMES, WAVE_VIEW, FIELD_VIEW, resolveGradient } from "./wave.js";
 import { ACTIVITY_IDS } from "./avatar.js";
-import { SESSION_NUMBERS } from "./session.js";
+import { SESSION_NUMBERS, TOOL_GROUP_IDS, RECENT_CALLS } from "./session.js";
 
 export const LIMITS = {
   pitch: [-89, 89],
@@ -14,6 +14,9 @@ export const LIMITS = {
   fps: [1, 120],
   contextLimit: [10_000, 10_000_000],
 };
+
+// More running subagents than this are drawn as this many.
+export const MAX_SATELLITES = 8;
 
 export const clamp = (value, [min, max]) => Math.max(min, Math.min(max, value));
 
@@ -49,6 +52,7 @@ export const SCENE_KEYS = [
   "caption",
   "activity",
   "stats",
+  "spectrum",
   "contextLimit",
   "session",
   "wave",
@@ -124,15 +128,25 @@ export function parseSettings(input) {
   pick("activity", (id) => id === "" || ACTIVITY_IDS.includes(id), `${ACTIVITY_IDS.join(", ")}, or "" for none`);
 
   if (typeIs("stats", input.stats, "boolean")) values.stats = input.stats;
+  if (typeIs("spectrum", input.spectrum, "boolean")) values.spectrum = input.spectrum;
   if (typeIs("contextLimit", input.contextLimit, "number")) {
     values.contextLimit = Math.round(clamp(input.contextLimit, LIMITS.contextLimit));
   }
   // Written by the hooks (see session.js); fields of the wrong type are dropped.
   if (typeIs("session", input.session, "object")) {
-    const { model } = input.session;
+    const { model, calls, satellites } = input.session;
     const count = (n) => Number.isFinite(n) && n >= 0;
+    const call = (c) =>
+      Array.isArray(c) &&
+      count(c[0]) &&
+      TOOL_GROUP_IDS.includes(c[1]) &&
+      (c[2] === 0 || c[2] === 1) &&
+      typeof c[3] === "string";
+    const satellite = (a) => Array.isArray(a) && typeof a[0] === "string" && a[0] && count(a[1]);
     values.session = {
       ...(typeof model === "string" && { model }),
+      ...(Array.isArray(calls) && { calls: calls.filter(call).slice(-RECENT_CALLS) }),
+      ...(Array.isArray(satellites) && { satellites: satellites.filter(satellite).slice(0, MAX_SATELLITES) }),
       ...Object.fromEntries(
         SESSION_NUMBERS.filter((key) => count(input.session[key])).map((key) => [key, input.session[key]]),
       ),

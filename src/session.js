@@ -2,13 +2,40 @@
 // Claude Code transcript (the JSONL file every hook event names), and how the
 // viewer shows them.
 
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-/** Totals of one transcript file: requests by message id, tool calls and failures, first and last timestamp. */
+/**
+ * The spectrum analyzer's bars: which tools count for which. Anything not
+ * listed (MCP tools, skills, ...) counts as "other".
+ */
+export const TOOL_GROUPS = [
+  { id: "read", label: "READ", tools: ["Read", "NotebookRead"] },
+  { id: "find", label: "FIND", tools: ["Grep", "Glob", "LS", "ToolSearch"] },
+  { id: "edit", label: "EDIT", tools: ["Edit", "MultiEdit", "NotebookEdit"] },
+  { id: "write", label: "WRITE", tools: ["Write"] },
+  { id: "bash", label: "BASH", tools: ["Bash", "BashOutput", "KillShell", "Monitor"] },
+  { id: "web", label: "WEB", tools: ["WebFetch", "WebSearch"] },
+  { id: "agent", label: "AGENT", tools: ["Agent", "Task", "SendMessage", "Workflow"] },
+  { id: "other", label: "OTHER", tools: [] },
+];
+export const TOOL_GROUP_IDS = TOOL_GROUPS.map((g) => g.id);
+
+export const toolGroup = (name) => TOOL_GROUPS.find((g) => g.tools.includes(name))?.id ?? "other";
+
+/** Tool calls the session keeps for the spectrum and the pings, the latest ones. */
+export const RECENT_CALLS = 48;
+
+// A subagent whose transcript hasn't changed for this long is gone, finished or not.
+const STALE_AGENT_MS = 10 * 60_000;
+
+/**
+ * Totals of one transcript file: requests by message id, tool calls (with
+ * their time) and failures, first and last timestamp.
+ */
 function readTranscript(path) {
   const usage = new Map();
-  const tools = new Set();
+  const calls = new Map();
   const failed = new Set();
   let model = "";
   let first = null;
@@ -32,8 +59,10 @@ function readTranscript(path) {
     if (entry.type !== "assistant" || !message?.usage || message.model === "<synthetic>") continue;
     usage.set(message.id, message.usage);
     model = message.model ?? model;
-    for (const block of message.content ?? []) if (block.type === "tool_use") tools.add(block.id);
     const time = Date.parse(entry.timestamp);
+    for (const block of message.content ?? []) {
+      if (block.type === "tool_use") calls.set(block.id, { time: Number.isFinite(time) ? time : 0, name: block.name });
+    }
     if (Number.isFinite(time)) {
       first ??= time;
       last = time;
@@ -43,8 +72,10 @@ function readTranscript(path) {
   return {
     model,
     replies,
+    calls: [...calls].map(([id, call]) => ({ ...call, failed: failed.has(id) })),
+    first,
     output: replies.reduce((sum, u) => sum + (u.output_tokens ?? 0), 0),
-    tools: tools.size,
+    tools: calls.size,
     failed: failed.size,
     seconds: first === null ? 0 : Math.round((last - first) / 1000),
   };
@@ -53,13 +84,26 @@ function readTranscript(path) {
 /** Tokens a request sent: fresh input plus what was written to and read from the cache. */
 const sent = (u) => (u.input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0);
 
+/** Whether a subagent still runs: its meta file says so, and its transcript is fresh. */
+function agentRunning(dir, name, now) {
+  try {
+    const meta = JSON.parse(readFileSync(join(dir, name.replace(/\.jsonl$/, ".meta.json")), "utf8"));
+    return meta.finished !== true && now - statSync(join(dir, name)).mtimeMs < STALE_AGENT_MS;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Stats for the session whose transcript is at `path`, or null if it can't
  * be read. `context` is what the latest request sent (the context in use);
- * `cache` is the share of all input that came from the prompt cache, in percent. `output`, `tools`,
- * `failed` and `cache` include the subagents, whose transcripts sit next to it.
+ * `cache` is the share of all input that came from the prompt cache, in
+ * percent. `output`, `tools`, `failed` and `cache` include the subagents,
+ * whose transcripts sit next to it. `calls` are the latest tool calls as
+ * `[time ms, tool group, failed 0/1, subagent id or ""]`, oldest first, and
+ * `satellites` the subagents still running, as `[id, start time ms]`.
  */
-export function sessionStats(path) {
+export function sessionStats(path, now = Date.now()) {
   if (typeof path !== "string" || !path) return null;
   let main;
   try {
@@ -72,7 +116,11 @@ export function sessionStats(path) {
   try {
     agents = readdirSync(dir)
       .filter((name) => name.endsWith(".jsonl"))
-      .map((name) => readTranscript(join(dir, name)));
+      .map((name) => ({
+        id: name.replace(/^agent-|\.jsonl$/g, ""),
+        running: agentRunning(dir, name, now),
+        ...readTranscript(join(dir, name)),
+      }));
   } catch {
     // No subagents.
   }
@@ -81,6 +129,10 @@ export function sessionStats(path) {
   const input = all.reduce((sum, u) => sum + sent(u), 0);
   const cached = all.reduce((sum, u) => sum + (u.cache_read_input_tokens ?? 0), 0);
   const total = (key) => agents.reduce((sum, a) => sum + a[key], main[key]);
+  const calls = [{ id: "", calls: main.calls }, ...agents]
+    .flatMap(({ id, calls }) => calls.map((c) => [c.time, toolGroup(c.name), c.failed ? 1 : 0, id]))
+    .sort((a, b) => a[0] - b[0])
+    .slice(-RECENT_CALLS);
   return {
     model: main.model,
     context: latest ? sent(latest) : 0,
@@ -90,6 +142,8 @@ export function sessionStats(path) {
     failed: total("failed"),
     agents: agents.length,
     seconds: main.seconds,
+    calls,
+    satellites: agents.filter((a) => a.running).map((a) => [a.id, a.first ?? now]),
   };
 }
 
@@ -99,7 +153,7 @@ export const SESSION_NUMBERS = ["context", "cache", "output", "tools", "failed",
  * The context window the meter fills up to. The transcript doesn't name it,
  * so it's a setting (contextLimit); Claude Code compacts shortly before it.
  */
-export const CONTEXT_LIMIT = 200_000;
+export const CONTEXT_LIMIT = 1_000_000;
 
 // Color zones by how full the window is there: green, amber from 60%, red from 85%.
 const METER_ZONES = [
@@ -107,10 +161,10 @@ const METER_ZONES = [
   [0.6, "#ffb000"],
   [0, "#39d353"],
 ];
-const zoneColor = (fraction) => METER_ZONES.find(([from]) => fraction >= from)[1];
+export const zoneColor = (fraction) => METER_ZONES.find(([from]) => fraction >= from)[1];
 
 /** A color at a quarter of its brightness: an unlit LED. */
-const unlit = (hex) =>
+export const unlit = (hex) =>
   `#${[1, 3, 5]
     .map((i) =>
       Math.round(parseInt(hex.slice(i, i + 2), 16) / 4)

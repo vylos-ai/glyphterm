@@ -7,7 +7,7 @@ import { THEME_NAMES, resolveTheme } from "./themes.js";
 import { clampField, WAVEFORM_NAMES, GRADIENT_NAMES, resolveGradient } from "./wave.js";
 import { clamp, LIMITS, viewDefaultsFor } from "./settings.js";
 import { AVATAR_NAMES, DEFAULT_AVATAR } from "./avatar.js";
-import { isAnimated, isField, resetView } from "./state.js";
+import { isAnimated, isField, resetView, glyphsApply, onlyPoints } from "./state.js";
 
 // SGR mouse reports, CSI and SS3 sequences (arrow keys), a lone Esc, or any single character.
 const TOKEN = /\x1b\[<(\d+);(\d+);(\d+)([Mm])|\x1b\[[0-9;]*[A-Za-z~]|\x1bO[A-Za-z]|\x1b|[\s\S]/g;
@@ -41,8 +41,16 @@ const KEYS = [
   { keys: ["\x1b[B", "\x1bOB", "j"], run: (s) => void pitchBy(s, -5) },
   { keys: ["+", "="], run: (s) => void zoomBy(s, 1.1) },
   { keys: ["-", "_"], run: (s) => void zoomBy(s, 1 / 1.1) },
-  { keys: ["s", "S"], run: (s, key) => void (s.style = cycle(STYLE_IDS, s.style, key === "s" ? 1 : -1)) },
-  { keys: ["g", "G"], run: (s, key) => void (s.palette = cycle(PALETTES, s.palette, key === "g" ? 1 : -1)) },
+  // The cloud ignores the style, so there it does nothing.
+  {
+    keys: ["s", "S"],
+    run: (s, key) => (onlyPoints(s) ? null : void (s.style = cycle(STYLE_IDS, s.style, key === "s" ? 1 : -1))),
+  },
+  {
+    keys: ["g", "G"],
+    // Only where it shows: the half-block and the other fixed-character styles have none.
+    run: (s, key) => (glyphsApply(s) ? void (s.palette = cycle(PALETTES, s.palette, key === "g" ? 1 : -1)) : null),
+  },
   {
     keys: ["c", "C"],
     run: (s, key) => {
@@ -76,6 +84,7 @@ const KEYS = [
   },
   { keys: [" "], run: (s) => void (s.paused = !s.paused) },
   { keys: ["i", "I"], run: (s) => void (s.stats = !s.stats) },
+  { keys: ["e", "E"], run: (s) => void (s.spectrum = !s.spectrum) },
   {
     keys: ["[", "]"],
     run: (s, key) => {
@@ -93,13 +102,14 @@ const KEYS = [
   { keys: [",", "."], run: (s, key) => void waveBy(s, "frequency", key === "." ? 0.5 : -0.5) },
   { keys: [";", "'"], run: (s, key) => void waveBy(s, "amplitude", key === "'" ? 0.1 : -0.1) },
   { keys: ["r", "R"], run: (s, key, options) => void resetView(s, options) },
-  ...STYLE_IDS.map((id, i) => ({ keys: [String(i + 1)], run: (s) => void (s.style = id) })),
+  ...STYLE_IDS.map((id, i) => ({ keys: [String(i + 1)], run: (s) => (onlyPoints(s) ? null : void (s.style = id)) })),
 ];
 
 const BY_KEY = new Map(KEYS.flatMap((binding) => binding.keys.map((key) => [key, binding])));
 
 /**
- * Apply one key to `state`. Returns null for unbound keys, otherwise the
+ * Apply one key to `state`. Returns null for unbound keys and keys that do
+ * nothing here (a binding returns null for that), otherwise the
  * effect the viewer has to carry out: "quit", "model" (load
  * `state.sources[state.sourceIdx]`), "colors" (recolor the model) or
  * "changed" (nothing beyond redrawing).
@@ -108,7 +118,8 @@ export function handleKey(state, key, options) {
   state.message = "";
   const binding = BY_KEY.get(key);
   if (!binding) return null;
-  return binding.run(state, key, options) ?? "changed";
+  const effect = binding.run(state, key, options);
+  return effect === undefined ? "changed" : effect;
 }
 
 /** Wheel zooms; dragging with the left button rotates. */

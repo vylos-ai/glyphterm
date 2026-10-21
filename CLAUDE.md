@@ -41,6 +41,7 @@ what was learned building it.
 | `src/core-avatar.js`  | The `core` avatar: a form and color per activity, flash on change, ring, floor lines     |
 | `src/hooks.js`        | `glyphterm avatar`: avatar file, Claude Code hook event → activity, `--print-hooks`      |
 | `src/session.js`      | Session stats from a Claude Code transcript (tokens, tool calls), the stats line fields  |
+| `src/signals.js`      | Session changes → pings, satellites (subagents) and the spectrum analyzer's bars         |
 
 Data flow: model polygons (y-up, bounding radius 1) → `renderFrame` rotates them by
 yaw/pitch → glyphcss `rasterize()` → `<pre>` HTML → `htmlToLines` → ANSI lines → the
@@ -119,7 +120,11 @@ UserPromptSubmit stdout would go into the agent's context). Each hook also rerea
 transcript (`transcript_path`) for the `session` stats: Claude Code logs a reply once per
 content block with the same usage, so replies are deduplicated by message id, and
 `<synthetic>` entries are its own error notices. Failed tool calls are `tool_result` blocks
-with `is_error` in user entries. A 13 MB transcript takes ~140 ms. Check poses visually with a
+with `is_error` in user entries. Subagents sit in `<transcript>/subagents/agent-<id>.jsonl`
+with a `.meta.json` that says `"finished": true` once done. `signals.js#trackSession` diffs
+each new `session` against the last (the first one quietly, so a restart replays nothing);
+the viewer adds the result to avatar geometry (`withSignals`). Points far back turn into
+dots in `renderPoints` unless they `keep` their character (the satellites do). A 13 MB transcript takes ~140 ms. Check poses visually with a
 pose sheet (render every activity to PNG); `--once --plain` can't show eyes on the screen.
 
 The viewer keeps file model paths absolute; scene files name them relative to the scene
