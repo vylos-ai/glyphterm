@@ -1,0 +1,22 @@
+{
+  "name": "glyphterm",
+  "version": "0.1.0",
+  "description": "Retro 3D model viewer for the terminal, rendered as text with glyphcss.",
+  "type": "module",
+  "bin": {
+    "glyphterm": "bin/glyphterm.js"
+  },
+  "scripts": {
+    "start": "node bin/glyphterm.js",
+    "demo": "node bin/glyphterm.js torus --style halfblock",
+    "test": "node --test \"test/*.test.js\""
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@glyphcss/core": "^0.3.1",
+    "glyphcss": "^0.3.1"
+  }
+}
