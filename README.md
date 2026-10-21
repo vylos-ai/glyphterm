@@ -33,21 +33,21 @@ Or try it without installing: `npx github:vylos-ai/glyphterm`. From a clone, run
 
 ### Controls
 
-| Input                      | Action                                                                  |
-| -------------------------- | ----------------------------------------------------------------------- |
-| mouse drag, arrows, `hjkl` | rotate                                                                  |
-| mouse wheel, `+` / `-`     | zoom                                                                    |
-| `s` / `S`, `1`–`7`         | next / previous / pick style                                            |
-| `g` / `G`                  | glyph palette (runes, binary, stars, hex, …): shade, wire and the cloud |
-| `c` / `C`                  | color: phosphor, amber, cyan, magenta, ice, paper, original             |
-| `m` / `M`                  | next / previous model                                                   |
-| `a` / `A`                  | next / previous avatar (cloud, core, buddy), each with its own view     |
-| `i`                        | show / hide the agent's session stats (see below)                       |
-| `e`                        | show / hide the spectrum analyzer of the agent's tool calls             |
-| `space`                    | pause auto-rotation                                                     |
-| `[` / `]`                  | spin slower / faster                                                    |
-| `r`                        | reset view                                                              |
-| `q`, `Esc`, `Ctrl-C`       | quit                                                                    |
+| Input                      | Action                                                               |
+| -------------------------- | -------------------------------------------------------------------- |
+| mouse drag, arrows, `hjkl` | rotate                                                               |
+| mouse wheel, `+` / `-`     | zoom                                                                 |
+| `s` / `S`, `1`–`7`         | next / previous / pick style                                         |
+| `g` / `G`                  | glyph palette (runes, binary, stars, hex, …, fine dots on the cloud) |
+| `c` / `C`                  | color: phosphor, amber, cyan, magenta, ice, paper, original          |
+| `m` / `M`                  | next / previous model                                                |
+| `a` / `A`                  | next / previous avatar (cloud, core, buddy), each with its own view  |
+| `i`                        | show / hide the agent's session stats (see below)                    |
+| `e`                        | show / hide the spectrum analyzer of the agent's tool calls          |
+| `space`                    | pause auto-rotation                                                  |
+| `[` / `]`                  | spin slower / faster                                                 |
+| `r`                        | reset view                                                           |
+| `q`, `Esc`, `Ctrl-C`       | quit                                                                 |
 
 ### Styles
 
@@ -193,7 +193,9 @@ thinking, a stream flowing inward while reading, rows of code scrolling up while
 two suns circling with swirling tails while running, a question mark when it needs you, a scatter on an error, an
 even sphere when done, dust settling while asleep. Nearer characters are brighter; the
 farthest shrink to dots. Press `g` to draw it with a glyph palette instead: a cloud of
-binary digits, runes, stars or braille. The **core** changes its form and color with each activity, snapping to the new form with a
+binary digits, runes, stars or braille. The last one, `fine`, draws it as braille dots
+instead: four times as many particles, each lighting one of the 2 × 4 dots in a cell, so the
+shapes come out in fine, smooth dot patterns. The **core** changes its form and color with each activity, snapping to the new form with a
 flash, while a ring orbits it: thinking is a violet dodecahedron, coding a fast-spinning
 green cuboctahedron, needs-you a bouncing magenta octahedron, an error a red star, done a
 gold ball. The **buddy** acts them out with its arms, legs and the eyes on its screen. Each

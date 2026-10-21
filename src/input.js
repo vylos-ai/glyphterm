@@ -49,7 +49,12 @@ const KEYS = [
   {
     keys: ["g", "G"],
     // Only where it shows: the half-block and the other fixed-character styles have none.
-    run: (s, key) => (glyphsApply(s) ? void (s.palette = cycle(PALETTES, s.palette, key === "g" ? 1 : -1)) : null),
+    // "fine" (braille dots) is for the cloud only.
+    run: (s, key) => {
+      if (!glyphsApply(s)) return null;
+      const palettes = onlyPoints(s) ? PALETTES : PALETTES.filter((p) => p !== "fine");
+      s.palette = cycle(palettes, s.palette, key === "g" ? 1 : -1);
+    },
   },
   {
     keys: ["c", "C"],

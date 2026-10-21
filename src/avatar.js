@@ -353,15 +353,18 @@ export const DEFAULT_AVATAR = "cloud";
 export function avatarLook(state, time = state.time) {
   const activity = currentActivity(state, time) ?? "";
   // The cloud draws with the glyph palette's characters.
+  // In the fine mode it is a denser cloud of braille dots instead.
   const glyphs = paletteGlyphs(state.palette ?? "auto");
+  const fine = state.palette === "fine";
   if (activity === "sleeping" && state.activity === "waiting") {
-    return { activity, previous: "waiting", age: time - state.activitySince - SLEEP_AFTER, glyphs };
+    return { activity, previous: "waiting", age: time - state.activitySince - SLEEP_AFTER, glyphs, fine };
   }
-  return { activity, previous: state.activityShown ?? "", age: time - state.activitySince, glyphs };
+  return { activity, previous: state.activityShown ?? "", age: time - state.activitySince, glyphs, fine };
 }
 
 /** An avatar's geometry for `look` at time `t`: { polygons, points, underlay }. */
 export function avatarGeometry(name, look = {}, t = 0) {
-  const { activity = "", previous = "", age = Infinity, glyphs = null } = look;
-  return { polygons: [], points: null, underlay: null, ...AVATARS[name].build({ activity, previous, age, glyphs }, t) };
+  const { activity = "", previous = "", age = Infinity, glyphs = null, fine = false } = look;
+  const built = AVATARS[name].build({ activity, previous, age, glyphs, fine }, t);
+  return { polygons: [], points: null, underlay: null, ...built };
 }

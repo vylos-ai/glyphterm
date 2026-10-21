@@ -57,7 +57,8 @@
         "math",
         "binary",
         "hex",
-        "arrows"
+        "arrows",
+        "fine"
       ],
       "description": "Glyph palette; auto lets each style pick."
     },

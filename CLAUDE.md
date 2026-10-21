@@ -124,7 +124,9 @@ with `is_error` in user entries. Subagents sit in `<transcript>/subagents/agent-
 with a `.meta.json` that says `"finished": true` once done. `signals.js#trackSession` diffs
 each new `session` against the last (the first one quietly, so a restart replays nothing);
 the viewer adds the result to avatar geometry (`withSignals`). Points far back turn into
-dots in `renderPoints` unless they `keep` their character (the satellites do). A 13 MB transcript takes ~140 ms. Check poses visually with a
+dots in `renderPoints` unless they `keep` their character (the satellites do). The palette
+`fine` is not glyphcss's: it makes the cloud 4× denser (`makeFormations(density)` scales the
+formations' parts) and `renderPoints` lights one braille dot per point (`brailleCells`). A 13 MB transcript takes ~140 ms. Check poses visually with a
 pose sheet (render every activity to PNG); `--once --plain` can't show eyes on the screen.
 
 The viewer keeps file model paths absolute; scene files name them relative to the scene

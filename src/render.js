@@ -35,6 +35,8 @@ export const PALETTES = [
   "binary",
   "hex",
   "arrows",
+  // Not a glyphcss palette: the cloud drawn as braille dots, one per particle (see renderPoints).
+  "fine",
 ];
 
 /** A palette's characters for drawing with directly (the cloud), or null for "auto". */
@@ -119,7 +121,7 @@ export function renderFrame({
 }) {
   const { rotate, place } = viewTransform(yaw, pitch, motion);
   if (lines) return renderLines({ lines, style, rotate, zoom, cols, rows, color });
-  if (points) return renderPoints({ points, place, zoom, cols, rows, color });
+  if (points) return renderPoints({ points, place, zoom, cols, rows, color, fine: palette === "fine" });
   const viewed = polygons.map((p) => ({
     ...p,
     vertices: p.vertices.map(place),
@@ -127,7 +129,8 @@ export function renderFrame({
   }));
   // The decorative glyphcss default reads poorly for wireframes; plain ASCII
   // plus box-drawing junctions looks like a classic vector display.
-  const glyphPalette = palette !== "auto" ? palette : style.mode === "wireframe" ? "ascii" : undefined;
+  const own = palette !== "auto" && palette !== "fine";
+  const glyphPalette = own ? palette : style.mode === "wireframe" ? "ascii" : undefined;
   // Half-blocks are plain pixels, so they can be supersampled: rendered larger
   // and averaged back down, which smooths stair-stepped edges.
   const factor = style.charMode === "halfblock" && color ? supersample : 1;
@@ -209,8 +212,9 @@ const FAR_GLYPH = "·";
  * brightness, and the farthest shrink to a dot unless they `keep` their
  * character. The style doesn't apply: the characters are the picture.
  */
-function renderPoints({ points, place, zoom, cols, rows, color }) {
+function renderPoints({ points, place, zoom, cols, rows, color, fine = false }) {
   const scale = ((0.92 * Math.min(cols, rows * 2)) / 2) * zoom;
+  if (fine) return brailleCells({ points, place, scale, cols, rows, color });
   const cells = Array.from({ length: rows }, () => new Array(cols).fill(null));
   for (const { at, char, color: hex, bright = 1, keep = false } of points) {
     const [gx, gy, gz] = place(at);
@@ -238,6 +242,52 @@ function renderPoints({ points, place, zoom, cols, rows, color }) {
         active = cell.hex;
       }
       line += cell.char;
+    }
+    return line + (color && active ? term.reset : "");
+  });
+}
+
+// Braille dot bits by position in the cell: [column][row], 2 columns of 4 rows.
+const BRAILLE_BITS = [
+  [0x01, 0x02, 0x04, 0x40],
+  [0x08, 0x10, 0x20, 0x80],
+];
+
+/**
+ * The fine mode: each point lights the one braille dot it falls on, a grid
+ * of 2 × 4 per cell, so shapes are drawn in steps of half a cell across and
+ * a quarter down. A cell takes the color of its nearest point, shaded by
+ * depth as in renderPoints.
+ */
+function brailleCells({ points, place, scale, cols, rows, color }) {
+  const cells = Array.from({ length: rows }, () => new Array(cols).fill(null));
+  for (const { at, color: hex, bright = 1 } of points) {
+    const [gx, gy, gz] = place(at);
+    // In dots: two per cell across, four down (the measured projection, finer).
+    const [px, py] = [Math.floor((cols / 2 + gy * scale) * 2), Math.floor((rows / 2 + (gx * scale) / 2) * 4)];
+    const [row, col] = [Math.floor(py / 4), Math.floor(px / 2)];
+    if (row < 0 || row >= rows || col < 0 || col >= cols) continue;
+    const cell = (cells[row][col] ??= { bits: 0, z: -Infinity, hex: null });
+    cell.bits |= BRAILLE_BITS[px % 2][py % 4];
+    if (gz > cell.z) {
+      const depth = Math.min(1, Math.max(0, (gz + 1) / 2));
+      cell.z = gz;
+      cell.hex = dim(hex ?? "#e8e4d8", Math.min(1, bright * (0.5 + 0.65 * depth)));
+    }
+  }
+  return cells.map((row) => {
+    let line = "";
+    let active = null;
+    for (const cell of row) {
+      if (!cell) {
+        line += " ";
+        continue;
+      }
+      if (color && cell.hex !== active) {
+        line += fg(cell.hex);
+        active = cell.hex;
+      }
+      line += String.fromCharCode(0x2800 + cell.bits);
     }
     return line + (color && active ? term.reset : "");
   });

@@ -36,7 +36,8 @@ Usage
 
 View
   -s, --style <id>      ${STYLE_IDS.join(" | ")}   (default: halfblock; shade when printing without color)
-  -g, --glyphs <name>   glyph palette, e.g. auto | ascii | lines | blocks | runes   (default: auto)
+  -g, --glyphs <name>   glyph palette, e.g. auto | ascii | lines | blocks | runes   (default: auto);
+                        fine draws the cloud avatar as braille dots
   -c, --color <name>    ${THEME_NAMES.join(" | ")} | #rrggbb   (default: phosphor; files: original)
       --yaw <deg>       start rotation around the vertical axis   (default: 30)
       --pitch <deg>     tilt toward the viewer   (default: 20)
@@ -348,7 +349,12 @@ if (once) {
     wave: options.wave,
     samples,
     // A still of an avatar shows its activity's look, without the motion.
-    look: { activity: options.activity ?? "", age: 1, glyphs: paletteGlyphs(options.palette ?? "auto") },
+    look: {
+      activity: options.activity ?? "",
+      age: 1,
+      glyphs: paletteGlyphs(options.palette ?? "auto"),
+      fine: options.palette === "fine",
+    },
   });
   const frame = renderFrame({
     ...options,

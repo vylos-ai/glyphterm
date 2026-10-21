@@ -5,7 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { visibleLength } from "../src/ansi.js";
 import { loadModel, PRIMITIVE_NAMES } from "../src/models.js";
-import { STYLE_IDS } from "../src/render.js";
+import { STYLE_IDS, renderFrame, findStyle } from "../src/render.js";
 import { parseSettings, viewDefaultsFor } from "../src/settings.js";
 import { createState } from "../src/state.js";
 import { parseInput, handleKey, handleMouse } from "../src/input.js";
@@ -187,6 +187,39 @@ test("g only works where the glyphs show: the shade and wire styles, and the clo
   state.palette = "binary";
   const { points } = avatarGeometry("cloud", { ...avatarLook(state), activity: "waiting" }, 1);
   assert.deepEqual([...new Set(points.map((p) => p.char))].sort(), ["0", "1"]);
+});
+
+test("fine draws the cloud as braille dots, one per particle, four times as many", async () => {
+  const { state } = await stateFor("torus");
+  state.style = "wire";
+  state.palette = "arrows";
+  handleKey(state, "g", {});
+  assert.equal(state.palette, "auto", "shade and wire skip fine: glyphcss doesn't know it");
+
+  Object.assign(state, { polygons: [], points: [{ at: [0, 0, 0], char: "*" }], palette: "arrows" });
+  handleKey(state, "g", {});
+  assert.equal(state.palette, "fine", "the cloud has it as its last palette");
+  const look = { ...avatarLook(state), activity: "running" };
+  assert.equal(avatarGeometry("cloud", look, 1).points.length, 2000);
+  assert.equal(avatarGeometry("cloud", { ...look, fine: false }, 1).points.length, 500);
+
+  // Two points in one cell light two of its dots: top left and bottom right.
+  // 20 × 10 cells: 9.2 cells per unit, the origin at the top left dot of cell (10, 5).
+  const lines = renderFrame({
+    points: [
+      { at: [0, 0, 0], color: "#ffffff" },
+      { at: [0.08, -0.19, 0], color: "#ffffff" },
+    ],
+    style: findStyle("halfblock"),
+    palette: "fine",
+    cols: 20,
+    rows: 10,
+    color: false,
+    pitch: 0,
+  });
+  const dots = lines.join("").replace(/ /g, "");
+  assert.equal([...dots].length, 1, "one cell");
+  assert.equal(dots, String.fromCharCode(0x2800 + 0x01 + 0x80));
 });
 
 test("hud: bars fill the width exactly and show messages and captions", async () => {
