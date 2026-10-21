@@ -109,44 +109,69 @@ frame, which is handy for agents.
 
 ## For AI agents and scripts
 
-An agent's shell output comes back to it as text, so glyphterm offers two interfaces.
+glyphterm is made to be driven by AI agents. An agent can't watch an animation, but it can
+read a frame as text and steer a viewer that you watch.
 
-**1. One frame as plain text.** The agent can read this output itself:
+### The agent skill
+
+`skills/glyphterm/SKILL.md` teaches an agent the whole workflow below. For Claude Code,
+copy it into your skills folder:
+
+```sh
+mkdir -p ~/.claude/skills && cp -r skills/glyphterm ~/.claude/skills/
+```
+
+Other agents that support Agent Skills take the same folder.
+
+### One frame as plain text
 
 ```sh
 glyphterm examples/rocket.obj --once --cols 60 --rows 20     # plain ASCII when piped
 glyphterm torus --once --ansi > frame.ans                    # force 24-bit color
+glyphterm --list --json                                      # every choice and limit
 ```
 
-**2. A live view the agent steers.** You run the viewer in a terminal split, and the agent
-edits a JSON file:
+### A live view the agent steers
 
 ```sh
-glyphterm --watch scene.json
+glyphterm open examples/rocket.obj --watch scene.json
 ```
+
+`open` starts the viewer in a new pane next to the agent's terminal, through the terminal's
+own CLI: tmux, WezTerm, kitty (with `allow_remote_control`) or Windows Terminal. Anywhere
+else (Konsole, GNOME Terminal, iTerm2, …) it exits with code 3 and prints the command for
+you to run in a second terminal: `glyphterm examples/rocket.obj --watch scene.json`.
+
+The agent then edits the scene file:
 
 ```json
 {
   "model": "examples/rocket.obj",
   "style": "quadrant",
-  "palette": "auto",
   "color": "amber",
   "yaw": 30,
   "pitch": 15,
-  "zoom": 1,
-  "spin": 20,
-  "paused": false,
+  "spin": 0,
   "caption": "Here is the rocket you asked for"
 }
 ```
 
-With `"model": "field"`, `"data": "cpu"` switches to live CPU load. With `"model": "wave"`, a `wave` object sets the oscilloscope:
+- **Every key is optional.** The full format is the JSON Schema in
+  `schema/scene.schema.json`.
+- **Model paths are relative to the scene file.**
+- **Your own keypresses are written back,** so the file always holds the current view.
+- **The viewer reports to `scene.status.json`:** whether it's running, the size of the scene
+  area, and any problems with the last edit, such as an unknown style, a value of the wrong
+  type, or a misspelled key. The footer shows the same problems, and the valid fields still
+  apply.
+- **`glyphterm --scene scene.json --plain --cols 80 --rows 24` renders what the viewer
+  shows,** without one running, and exits with code 2 listing every problem.
+
+With `"model": "field"`, `"data": "cpu"` switches to live CPU load. With `"model": "wave"`,
+a `wave` object sets the oscilloscope:
 `{"waveform": "square", "frequency": 2, "amplitude": 0.8, "speed": 0.5}`.
 
-All fields are optional. A relative `model` path is resolved against the scene file's
-folder. Invalid values show up as an error in the footer, while the valid fields still
-apply. Your own keypresses are written back to the file, so the agent can always read the
-current view.
+Exit codes: 0 success, 2 invalid arguments or scene, 3 `open` couldn't open a pane.
 
 ## How it works
 
@@ -160,8 +185,11 @@ mesh file / primitive ──► normalize (center, radius 1, y-up)
 
 - `src/render.js`: styles, view transform, lighting and fit-to-terminal
 - `src/ansi.js`: escape codes and the glyphcss HTML → ANSI translation
-- `src/models.js`: primitives and file loading
-- `src/viewer.js`: render loop, HUD, keyboard and mouse input, scene-file watching
+- `src/models.js` and `src/geometry.js`: primitives, file loading, what each model draws
+- `src/settings.js`: validation shared by the command line and the scene file
+- `src/viewer.js`: render loop and scene-file watching, with `state.js`, `input.js`,
+  `scene.js` and `hud.js` for the parts
+- `src/open.js`: opening a pane in tmux, WezTerm, kitty or Windows Terminal
 - `bin/glyphterm.js`: CLI
 
 Notes:
@@ -172,4 +200,5 @@ Notes:
 - glyphcss's hidden-line removal drops real edges in ASCII wireframes, so the `wire` style
   is always x-ray.
 
-`npm test` runs the test suite.
+`npm test` runs the test suite, `npm run lint` checks style, and `npm run schema`
+regenerates the scene schema.

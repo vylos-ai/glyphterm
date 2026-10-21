@@ -2,3 +2,4 @@ node_modules/
 .playwright-mcp/
 *.ans
 scene.json
+*.status.json

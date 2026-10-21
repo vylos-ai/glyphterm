@@ -2,6 +2,9 @@
 // glyphterm: a retro 3D model viewer for the terminal.
 
 import { parseArgs } from "node:util";
+import { readFileSync } from "node:fs";
+import { resolve, extname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { loadModel, PRIMITIVE_NAMES, SUPPORTED_EXTENSIONS } from "../src/models.js";
 import { renderFrame, STYLES, STYLE_IDS, PALETTES, findStyle } from "../src/render.js";
 import { THEME_NAMES } from "../src/themes.js";
@@ -9,13 +12,21 @@ import { term } from "../src/ansi.js";
 import { runViewer } from "../src/viewer.js";
 import { createCpuSampler } from "../src/cpu.js";
 import { modelGeometry } from "../src/geometry.js";
-import { parseSettings, viewDefaultsFor, clamp, LIMITS } from "../src/settings.js";
-import { WAVEFORM_NAMES, GRADIENT_NAMES } from "../src/wave.js";
+import { parseSettings, viewDefaultsFor, clamp, LIMITS, DATA_SOURCES, SCENE_KEYS } from "../src/settings.js";
+import { unknownSceneKeys } from "../src/settings.js";
+import { resolveSceneModel } from "../src/scene.js";
+import { openPane } from "../src/open.js";
+import { ANIMATED } from "../src/models.js";
+import { WAVEFORM_NAMES, GRADIENT_NAMES, WAVE_LIMITS, LINE_LIMITS } from "../src/wave.js";
+
+const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+const SCHEMA_PATH = fileURLToPath(new URL("../schema/scene.schema.json", import.meta.url));
 
 const HELP = `glyphterm: spin 3D models in your terminal, drawn with text.
 
 Usage
   glyphterm [model] [options]
+  glyphterm open [model] [options]   start the viewer in a new pane (tmux, WezTerm, kitty, Windows Terminal)
 
   model                 a primitive (${PRIMITIVE_NAMES.slice(0, 4).join(", ")}, …; see --list)
                         or a mesh file (${SUPPORTED_EXTENSIONS.join(" ")}). Default: torus
@@ -45,10 +56,16 @@ Agents & scripts
       --rows <n>        height for --once   (default: terminal height - 1 or 24)
       --plain           no colors (default when piped or NO_COLOR is set)
       --ansi            force 24-bit colors even when piped
-  -w, --watch <file>    interactive viewer steered by a JSON scene file (created if missing)
+  -w, --watch <file>    interactive viewer steered by a JSON scene file (created if missing);
+                        it reports to the status file next to it, scene.json -> scene.status.json
+                        (running, size, problems)
+      --scene <file>    print one frame of what the viewer shows for this scene file (implies
+                        --once; the scene area only, without header or caption), or exit 2
+                        listing every problem in the file
 
 Other
       --list            list primitives, styles, glyph palettes and colors
+      --json            with --list: everything as JSON, including value limits
   -h, --help
 
 Keys
@@ -74,7 +91,7 @@ try {
     allowPositionals: true,
     options: {
       style: { type: "string", short: "s" },
-      glyphs: { type: "string", short: "g", default: "auto" },
+      glyphs: { type: "string", short: "g" },
       color: { type: "string", short: "c" },
       yaw: { type: "string" },
       pitch: { type: "string" },
@@ -94,7 +111,9 @@ try {
       plain: { type: "boolean" },
       ansi: { type: "boolean" },
       watch: { type: "string", short: "w" },
+      scene: { type: "string" },
       list: { type: "boolean" },
+      json: { type: "boolean" },
       help: { type: "boolean", short: "h" },
     },
   });
@@ -109,6 +128,27 @@ if (args.help) {
   process.exit(0);
 }
 
+if (args.list && args.json) {
+  const listing = {
+    models: {
+      primitives: PRIMITIVE_NAMES.filter((name) => !ANIMATED.includes(name)),
+      animated: ANIMATED,
+      fileExtensions: SUPPORTED_EXTENSIONS,
+    },
+    styles: STYLES.map(({ id, label }) => ({ id, label })),
+    palettes: PALETTES,
+    colors: { themes: THEME_NAMES, custom: "#rrggbb" },
+    gradients: { presets: GRADIENT_NAMES, custom: "array of 2 or more #rrggbb" },
+    waveforms: WAVEFORM_NAMES,
+    dataSources: DATA_SOURCES,
+    limits: { ...LIMITS, ...WAVE_LIMITS, lines: LINE_LIMITS },
+    sceneKeys: SCENE_KEYS,
+    sceneSchema: SCHEMA_PATH,
+  };
+  process.stdout.write(JSON.stringify(listing, null, 2) + "\n");
+  process.exit(0);
+}
+
 if (args.list) {
   console.log(`primitives  ${PRIMITIVE_NAMES.join(", ")}`);
   console.log(`styles      ${STYLES.map((s) => `${s.id} (${s.label})`).join(", ")}`);
@@ -118,38 +158,88 @@ if (args.list) {
   process.exit(0);
 }
 
+const opening = positionals[0] === "open";
+if (opening) positionals.shift();
 if (positionals.length > 1) fail(`expected one model, got ${positionals.length}`);
-const model = positionals[0] ?? "torus";
+if (opening && args.once) fail("open starts the interactive viewer; it can't be combined with --once");
+if (args.scene && (opening || args.watch)) fail("--scene is for previews with --once; the viewer uses --watch");
 
-const interactive = process.stdin.isTTY && process.stdout.isTTY;
-const once = args.once || !interactive;
+// With --scene, the scene file decides everything it sets, the model included.
+let scene = {};
+if (args.scene) {
+  try {
+    scene = JSON.parse(readFileSync(args.scene, "utf8"));
+  } catch (err) {
+    fail(`scene file: ${err.message}`);
+  }
+  if (!isObject(scene)) fail("scene file: expected a JSON object");
+}
+// File paths are kept absolute, so the scene file can name them relative to itself.
+const named = positionals[0] ?? "torus";
+const model =
+  typeof scene.model === "string"
+    ? resolveSceneModel(scene.model, args.scene)
+    : extname(named)
+      ? resolve(named)
+      : named;
+
+const interactive = opening || (process.stdin.isTTY && process.stdout.isTTY);
+const once = !opening && (args.once || args.scene !== undefined || !interactive);
 const color = Boolean(args.ansi || (!args.plain && process.stdout.isTTY && !process.env.NO_COLOR));
 const isFile = !PRIMITIVE_NAMES.includes(model);
 // Animated models have their own best view; explicit flags still win.
 const view = viewDefaultsFor(model);
 
-const { values: settings, problems } = parseSettings({
-  // Without color, half-blocks are bare silhouettes; shaded ASCII carries the form.
-  style: args.style ?? (model === "field" ? "braille" : once && !color ? "shade" : "halfblock"),
+const defined = (object) => Object.fromEntries(Object.entries(object).filter(([, v]) => v !== undefined));
+// Precedence: explicit flags, then the scene file, then defaults.
+const flags = defined({
+  style: args.style,
   palette: args.glyphs,
-  color: args.color ?? (isFile ? "original" : "phosphor"),
-  gradient: args.gradient ?? "synthwave",
-  data: args.data ?? "demo",
-  yaw: number(args.yaw, "yaw", view.yaw),
-  pitch: number(args.pitch, "pitch", view.pitch),
-  zoom: number(args.zoom, "zoom", view.zoom),
-  spin: number(args.spin, "spin", view.spin),
-  wave: {
-    waveform: args.waveform,
-    frequency: number(args.frequency, "frequency"),
-    amplitude: number(args.amplitude, "amplitude"),
-    speed: number(args.scroll, "scroll"),
-    lines: number(args.lines, "lines"),
-  },
+  color: args.color,
+  gradient: args.gradient,
+  data: args.data,
+  yaw: number(args.yaw, "yaw"),
+  pitch: number(args.pitch, "pitch"),
+  zoom: number(args.zoom, "zoom"),
+  spin: number(args.spin, "spin"),
 });
-if (problems.length) fail(problems[0]);
+const flagWave = defined({
+  waveform: args.waveform,
+  frequency: number(args.frequency, "frequency"),
+  amplitude: number(args.amplitude, "amplitude"),
+  speed: number(args.scroll, "scroll"),
+  lines: number(args.lines, "lines"),
+});
+const defaults = {
+  style: model === "field" ? "braille" : "halfblock",
+  palette: "auto",
+  color: isFile ? "original" : "phosphor",
+  gradient: "synthwave",
+  data: "demo",
+  ...view,
+};
+const input = { ...defaults, ...scene, ...flags };
+// A malformed scene wave is passed on as is, to be reported.
+input.wave = scene.wave === undefined || isObject(scene.wave) ? { ...scene.wave, ...flagWave } : scene.wave;
+// Without color, half-blocks are bare silhouettes; shaded ASCII carries the form.
+if (once && !color && !args.style && ["halfblock", "quadrant"].includes(input.style)) input.style = "shade";
+const { values: settings, problems } = parseSettings(input);
+// Scene files are checked completely, so one run reports every mistake.
+const allProblems = args.scene ? [...problems, ...unknownSceneKeys(scene)] : problems;
+if (allProblems.length) fail(allProblems.join("\n  "));
 
 const options = { ...settings, model, fps: clamp(number(args.fps, "fps", 30), LIMITS.fps), watch: args.watch };
+
+if (opening) {
+  // The arguments are valid (checked above); the new pane runs them without "open".
+  const rest = process.argv.slice(2);
+  rest.splice(rest.indexOf("open"), 1);
+  const { ok, message } = openPane([process.execPath, fileURLToPath(import.meta.url), ...rest]);
+  if (ok) console.log(`glyphterm: ${message}`);
+  else console.error(`glyphterm: ${message}`);
+  // 3: nothing is wrong with the request, but the user has to start the viewer.
+  process.exit(ok ? 0 : 3);
+}
 
 if (once) {
   if (args.watch) fail("--watch needs an interactive terminal");

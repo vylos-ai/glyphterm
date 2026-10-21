@@ -50,20 +50,25 @@ test("settings: valid values are resolved and clamped", () => {
   assert.deepEqual(values.wave, { waveform: "saw", lines: 5 });
 });
 
-test("settings: invalid values are reported with the valid choices, wrong types ignored", () => {
+test("settings: invalid values and wrong types are reported with the valid choices", () => {
   const { values, problems } = parseSettings({
     style: "nope",
     color: "chartreuse",
     data: "disk",
     gradient: 7,
-    wave: { waveform: "noise" },
+    wave: { waveform: "noise", lines: "5" },
     yaw: "45",
+    paused: null,
     extra: true,
   });
-  assert.deepEqual(Object.keys(values), ["wave"]);
-  assert.equal(problems.length, 5);
+  assert.deepEqual(values, { wave: {} });
+  assert.equal(problems.length, 8);
   assert.match(problems[0], /unknown style "nope" \(shade, halfblock/);
   assert.ok(problems.some((p) => p.startsWith("unknown gradient (synthwave")));
+  assert.ok(problems.includes('yaw must be a number, got "45"'));
+  assert.ok(problems.includes("paused must be a boolean, got null"));
+  assert.ok(problems.includes('wave.lines must be a number, got "5"'));
+  assert.deepEqual(parseSettings({ wave: null }).problems, ["wave must be an object, got null"]);
 });
 
 test("input: raw bytes split into keys, arrow keys and mouse reports", () => {

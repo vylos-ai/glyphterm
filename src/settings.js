@@ -26,17 +26,60 @@ export function viewDefaultsFor(model) {
 
 const WAVE_NUMBERS = ["frequency", "amplitude", "speed", "lines"];
 
+/** Every key a scene file may have; anything else is most likely a typo. */
+export const SCENE_KEYS = [
+  "model",
+  "style",
+  "palette",
+  "color",
+  "yaw",
+  "pitch",
+  "zoom",
+  "spin",
+  "paused",
+  "caption",
+  "wave",
+  "gradient",
+  "data",
+];
+const WAVE_KEYS = ["waveform", ...WAVE_NUMBERS];
+
+/** Problems for keys a scene file doesn't know, at the top level and in `wave`. */
+export function unknownSceneKeys(scene) {
+  const unknown = Object.keys(scene).filter((key) => !SCENE_KEYS.includes(key));
+  if (scene.wave && typeof scene.wave === "object") {
+    unknown.push(
+      ...Object.keys(scene.wave)
+        .filter((key) => !WAVE_KEYS.includes(key))
+        .map((key) => `wave.${key}`),
+    );
+  }
+  return unknown.map((key) => `unknown key "${key}" (${SCENE_KEYS.join(", ")}; wave: ${WAVE_KEYS.join(", ")})`);
+}
+
 /**
  * Check a partial set of settings (parsed flags or a scene file). Returns
  * `values` with every valid setting, resolved and clamped, plus `problems`
- * describing the rejected ones. Unknown keys and keys of the wrong type are
- * ignored, so a scene file can carry extra fields.
+ * describing the rejected ones, including values of the wrong type. Keys it
+ * doesn't know are ignored here (see `unknownSceneKeys`); `undefined` means unset.
  */
 export function parseSettings(input) {
   const values = {};
   const problems = [];
+  const typeIs = (key, value, type) => {
+    if (value === undefined) return false;
+    const ok =
+      type === "number"
+        ? Number.isFinite(value)
+        : type === "object"
+          ? value !== null && typeof value === "object" && !Array.isArray(value)
+          : typeof value === type;
+    if (ok) return true;
+    problems.push(`${key} must be ${type === "object" ? "an" : "a"} ${type}, got ${JSON.stringify(value)}`);
+    return false;
+  };
   const pick = (key, valid, list) => {
-    if (typeof input[key] !== "string") return;
+    if (!typeIs(key, input[key], "string")) return;
     if (valid(input[key])) values[key] = input[key];
     else problems.push(`unknown ${key} "${input[key]}" (${list})`);
   };
@@ -45,7 +88,7 @@ export function parseSettings(input) {
   pick("palette", (name) => PALETTES.includes(name), PALETTES.join(", "));
   pick("data", (name) => DATA_SOURCES.includes(name), DATA_SOURCES.join(", "));
 
-  if (typeof input.color === "string") {
+  if (typeIs("color", input.color, "string")) {
     const theme = resolveTheme(input.color);
     if (theme) values.theme = theme;
     else problems.push(`unknown color "${input.color}" (${THEME_NAMES.join(", ")}, or #rrggbb)`);
@@ -60,21 +103,21 @@ export function parseSettings(input) {
   }
 
   for (const key of ["yaw", "pitch", "zoom", "spin"]) {
-    if (Number.isFinite(input[key])) values[key] = LIMITS[key] ? clamp(input[key], LIMITS[key]) : input[key];
+    if (typeIs(key, input[key], "number")) values[key] = LIMITS[key] ? clamp(input[key], LIMITS[key]) : input[key];
   }
-  if (typeof input.paused === "boolean") values.paused = input.paused;
-  if (typeof input.caption === "string") values.caption = input.caption;
+  if (typeIs("paused", input.paused, "boolean")) values.paused = input.paused;
+  if (typeIs("caption", input.caption, "string")) values.caption = input.caption;
 
   // Wave settings are merged into the current ones and clamped there (see clampField).
-  if (input.wave && typeof input.wave === "object") {
+  if (typeIs("wave", input.wave, "object")) {
     const wave = {};
     const { waveform } = input.wave;
-    if (typeof waveform === "string") {
+    if (typeIs("wave.waveform", waveform, "string")) {
       if (WAVEFORM_NAMES.includes(waveform)) wave.waveform = waveform;
       else problems.push(`unknown waveform "${waveform}" (${WAVEFORM_NAMES.join(", ")})`);
     }
     for (const key of WAVE_NUMBERS) {
-      if (Number.isFinite(input.wave[key])) wave[key] = input.wave[key];
+      if (typeIs(`wave.${key}`, input.wave[key], "number")) wave[key] = input.wave[key];
     }
     values.wave = wave;
   }

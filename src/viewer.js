@@ -10,7 +10,7 @@ import { renderFrame, findStyle } from "./render.js";
 import { createCpuSampler } from "./cpu.js";
 import { modelGeometry } from "./geometry.js";
 import { createState, isAnimated, flash } from "./state.js";
-import { sceneSnapshot, applyScene, sceneModel } from "./scene.js";
+import { sceneSnapshot, sceneModelName, applyScene, sceneModel, statusPath } from "./scene.js";
 import { parseInput, handleKey, handleMouse } from "./input.js";
 import { composeFrame, sceneRows } from "./hud.js";
 
@@ -19,6 +19,7 @@ export async function runViewer(options) {
   const state = createState(options);
 
   let loadToken = 0;
+  /** Returns an error message if the model failed to load. */
   async function setModel(source) {
     const token = ++loadToken;
     try {
@@ -30,6 +31,7 @@ export async function runViewer(options) {
       if (model.warnings.length) flash(state, model.warnings[0]);
     } catch (err) {
       flash(state, err.message, true);
+      return err.message;
     }
   }
 
@@ -77,22 +79,43 @@ export async function runViewer(options) {
       scene = JSON.parse(readFileSync(watchPath, "utf8"));
     } catch (err) {
       flash(state, `scene file: ${err.message}`, true);
-      return;
+      return writeStatus([`scene file: ${err.message}`]);
     }
     const problems = applyScene(state, scene);
     if (problems.length) flash(state, `scene file: ${problems.join(", ")}`, true);
     else flash(state, "scene updated");
 
     const source = sceneModel(state, scene, watchPath);
-    if (source) await setModel(source);
-    else refreshGeometry();
+    const loadError = source ? await setModel(source) : refreshGeometry();
+    writeStatus(loadError ? [...problems, loadError] : problems);
+  }
+
+  // The status file tells whoever edits the scene whether the viewer runs,
+  // what it shows, at which size, and what was wrong with the last edit.
+  let lastProblems = [];
+  function writeStatus(problems = lastProblems, running = true) {
+    lastProblems = problems;
+    const status = {
+      running,
+      pid: process.pid,
+      updatedAt: new Date().toISOString(),
+      model: sceneModelName(state.source, watchPath),
+      problems,
+      // The scene area, for previews with --once --cols --rows.
+      size: { cols: out.columns || 80, rows: sceneRows(state, out.rows || 24) },
+    };
+    try {
+      writeFileSync(statusPath(watchPath), JSON.stringify(status, null, 2) + "\n");
+    } catch {
+      // A read-only folder only costs the status; the footer still shows problems.
+    }
   }
 
   // Keystrokes are mirrored into the scene file so an agent always reads the
   // current view. Our own writes are ignored by the watcher via `lastWritten`.
   let lastWritten = "";
   function writeScene() {
-    lastWritten = JSON.stringify(sceneSnapshot(state), null, 2) + "\n";
+    lastWritten = JSON.stringify(sceneSnapshot(state, watchPath), null, 2) + "\n";
     try {
       writeFileSync(watchPath, lastWritten);
     } catch (err) {
@@ -160,7 +183,10 @@ export async function runViewer(options) {
     running = false;
     clearTimeout(timer);
     sampler?.stop();
-    if (watchPath) unwatchFile(watchPath);
+    if (watchPath) {
+      unwatchFile(watchPath);
+      writeStatus(lastProblems, false);
+    }
     process.stdin.off("data", onData);
     process.stdin.pause();
     restoreTerminal();
@@ -177,7 +203,10 @@ export async function runViewer(options) {
   process.stdin.setRawMode(true);
   process.stdin.resume();
   process.stdin.on("data", onData);
-  out.on("resize", () => out.write(term.clear));
+  out.on("resize", () => {
+    out.write(term.clear);
+    if (watchPath) writeStatus();
+  });
 
   await setModel(options.model);
 
@@ -188,6 +217,7 @@ export async function runViewer(options) {
     } else {
       writeScene();
       flash(state, `created scene file ${options.watch}`);
+      writeStatus([]);
     }
     watchFile(watchPath, { interval: 200 }, () => {
       let text;

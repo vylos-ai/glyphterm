@@ -10,6 +10,8 @@ what was learned building it.
 
 - `npm test`: node:test suite in `test/` (fast, no terminal needed)
 - `npm run lint`: ESLint + Prettier check; `npm run format` rewrites formatting
+- `npm run schema`: regenerates `schema/scene.schema.json` from the code (a test fails
+  when it's stale)
 - `node bin/glyphterm.js <model> [--style …] [--watch scene.json]`: interactive viewer
 - `node bin/glyphterm.js <model> --once --cols 80 --rows 24`: one frame to stdout. Plain
   text when piped, which is how an agent "sees" a render.
@@ -17,22 +19,23 @@ what was learned building it.
 
 ## Architecture
 
-| File               | Role                                                                              |
-| ------------------ | --------------------------------------------------------------------------------- |
-| `bin/glyphterm.js` | CLI: argument parsing, `--once` path                                              |
-| `src/settings.js`  | Limits, per-model default views, `parseSettings()` shared by CLI flags and scene  |
-| `src/geometry.js`  | `modelGeometry()`: loaded model → colored polygons, or polylines for the field    |
-| `src/viewer.js`    | Interactive loop: terminal setup, model loading, CPU sampler, scene-file watching |
-| `src/state.js`     | The viewer state object and small helpers (`isField`, `accent`, `resetView`)      |
-| `src/input.js`     | Terminal input → key/mouse events → state changes; key table, returns effects     |
-| `src/scene.js`     | Scene file ⇄ state: `sceneSnapshot()`, `applyScene()`, model path resolution      |
-| `src/hud.js`       | Header, footer, caption and the full-frame composition                            |
-| `src/render.js`    | `renderFrame()`: view transform, lighting, styles, polyline/ridgeline renderer    |
-| `src/ansi.js`      | Escape codes, glyphcss HTML → ANSI (fg and bg), `overlayText()` for labels        |
-| `src/models.js`    | Primitives, mesh-file loading (OBJ+MTL/STL/glTF/VOX), normalization               |
-| `src/wave.js`      | Animated models: `wave` (oscilloscope) and `field` (ridgeline, demo or data)      |
-| `src/cpu.js`       | Per-core CPU load sampler (`os.cpus()`, cross-platform)                           |
-| `src/themes.js`    | Phosphor color themes, `PHOSPHOR`/`PAPER` constants, tinting                      |
+| File               | Role                                                                                     |
+| ------------------ | ---------------------------------------------------------------------------------------- |
+| `bin/glyphterm.js` | CLI: argument parsing, `--once` path                                                     |
+| `src/settings.js`  | Limits, per-model default views, `parseSettings()` shared by CLI flags and scene         |
+| `src/geometry.js`  | `modelGeometry()`: loaded model → colored polygons, or polylines for the field           |
+| `src/viewer.js`    | Interactive loop: terminal setup, model loading, CPU sampler, scene-file watching        |
+| `src/state.js`     | The viewer state object and small helpers (`isField`, `accent`, `resetView`)             |
+| `src/input.js`     | Terminal input → key/mouse events → state changes; key table, returns effects            |
+| `src/scene.js`     | Scene file ⇄ state: `sceneSnapshot()`, `applyScene()`, model path resolution             |
+| `src/hud.js`       | Header, footer, caption and the full-frame composition                                   |
+| `src/render.js`    | `renderFrame()`: view transform, lighting, styles, polyline/ridgeline renderer           |
+| `src/ansi.js`      | Escape codes, glyphcss HTML → ANSI (fg and bg), `overlayText()` for labels               |
+| `src/models.js`    | Primitives, mesh-file loading (OBJ+MTL/STL/glTF/VOX), normalization                      |
+| `src/wave.js`      | Animated models: `wave` (oscilloscope) and `field` (ridgeline, demo or data)             |
+| `src/cpu.js`       | Per-core CPU load sampler (`os.cpus()`, cross-platform)                                  |
+| `src/open.js`      | `glyphterm open`: split a pane via tmux/WezTerm/kitty/Windows Terminal CLIs, else exit 3 |
+| `src/themes.js`    | Phosphor color themes, `PHOSPHOR`/`PAPER` constants, tinting                             |
 
 Data flow: model polygons (y-up, bounding radius 1) → `renderFrame` rotates them by
 yaw/pitch → glyphcss `rasterize()` → `<pre>` HTML → `htmlToLines` → ANSI lines → the
@@ -75,6 +78,20 @@ glyphcss explicit `wireframe` edges.
 - Colors are `#rrggbb` everywhere. Gradients run front (index 0) to back.
 - Watch out for default parameters receiving `undefined`: `renderFrame({ color: undefined })`
   falls back to the default `true`. Coerce with `Boolean(...)` (this already caused a bug once).
+
+## Agent interface
+
+glyphterm is meant to be driven by AI agents; `skills/glyphterm/SKILL.md` is the
+user-facing skill for that (keep it in sync with CLI changes). The pieces:
+`--list --json`, `--once --scene <file>` (preview and validation; flags beat the scene,
+which beats defaults), the viewer's `<scene>.status.json` (running, size, problems), the
+JSON Schema, and `glyphterm open`. Exit codes: 2 invalid input, 3 no supported way to open
+a pane. `open` must only use a terminal's documented CLI. Never drive terminals through
+side channels (Konsole's D-Bus `runCommand`/`sendText` is deliberately disabled by
+default).
+
+The viewer keeps file model paths absolute; scene files name them relative to the scene
+file when they sit below it (`sceneModelName`).
 
 ## Working with the user's live viewer
 

@@ -17,6 +17,7 @@ export const WAVEFORM_NAMES = Object.keys(WAVEFORMS);
 
 export const WAVE_DEFAULTS = { waveform: "sine", frequency: 3, amplitude: 1, speed: 0.5 };
 export const WAVE_LIMITS = { frequency: [0.25, 12], amplitude: [0, 1.3], speed: [-5, 5] };
+export const LINE_LIMITS = [2, 40];
 
 // A front-facing view suits a scope better than the usual three-quarter spin.
 export const WAVE_VIEW = { yaw: 0, pitch: 0, spin: 0, zoom: 1.5 };
@@ -170,7 +171,8 @@ export function defaultsFor(model) {
 
 export function clampField(settings) {
   const out = clampWave(settings);
-  out.lines = Math.round(Math.max(2, Math.min(40, Number.isFinite(out.lines) ? out.lines : FIELD_DEFAULTS.lines)));
+  const [min, max] = LINE_LIMITS;
+  out.lines = Math.round(Math.max(min, Math.min(max, Number.isFinite(out.lines) ? out.lines : FIELD_DEFAULTS.lines)));
   return out;
 }
 

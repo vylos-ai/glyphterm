@@ -11,7 +11,8 @@
     "demo": "node bin/glyphterm.js torus --style halfblock",
     "test": "node --test \"test/*.test.js\"",
     "lint": "eslint . && prettier --check .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "schema": "node scripts/scene-schema.js"
   },
   "engines": {
     "node": ">=20"
