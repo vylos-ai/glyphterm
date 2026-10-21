@@ -9,7 +9,7 @@ glyphterm draws 3D models with text characters. You can't watch the live
 viewer, but you can render any view as plain text and read it, and you can
 steer a viewer the user watches by editing a JSON file.
 
-Run it as `glyphterm` if that command exists, otherwise `npx glyphterm`.
+Run it as `glyphterm` if that command exists, otherwise `npx github:vylos-ai/glyphterm`.
 Inside a checkout of the glyphterm repository, use `node bin/glyphterm.js`.
 
 ## Look at a model yourself

@@ -5,48 +5,45 @@ quadrant pixels, braille wireframes. It's built on [glyphcss](https://glyphcss.c
 rasterizer, so no GPU, canvas, or image protocol is needed. It works in any terminal with
 24-bit color: Konsole, Windows Terminal, kitty, and so on.
 
-```
-                      ⢀⣀⣀⣀⣠⣤⠤⠤⣶⣶⡄
-                   ⣠⣾⣿⣭⣉⠉     ⢡⢿⠹⣄
-                 ⢀⡴⠋⣿⡙⠉⡛⠶⣄   ⢀⡞⡞ ⠘⣆
-                ⣠⠞  ⡇    ⠈⠙⠲⢤⣴⡀⡇  ⠈⢧⡀
-              ⢀⡼⠃  ⢠⠇      ⠈⠙⣚⣿⡷⢶⣄⡀ ⢳⡀
-             ⣠⣯    ⢸      ⣠⡴⠚⠉ ⡇ ⠈⠙⣳⣦⣽⡄
-             ⠹⠛⢯⣘⠐ ⢾⢠ ⢀⣠⠴⠋⠁    ⡇     ⢈⠇
-              ⠙⣆⠈⠓⠦⣼⣧⡖⠋        ⡇   ⢀⡴⠋
-               ⠘⢦  ⢸⠙⠲⢤⣀       ⡇  ⣠⠞⠁
-                ⠈⢳⡀⢸⡀  ⠈⠙⠲⢤⣀   ⡇⢀⡴⠃
-                  ⠳⡄⣧      ⠈⠙⠲⢾⣧⠏
-                   ⠹⠿⠯⠖⠒⠒⠒⠋⠉⠉⠉
-```
+![A retro computer, a rocket and a wave field, drawn with text](https://raw.githubusercontent.com/vylos-ai/glyphterm/main/docs/models.png)
+
+It also gives your coding agent a face: `glyphterm avatar` shows a cloud of characters
+that regroups into a new formation for whatever the agent is doing, driven by Claude Code
+hooks at no token cost:
+
+![The glyph cloud avatar thinking, reading, coding, asking for permission, running tests and finishing](https://raw.githubusercontent.com/vylos-ai/glyphterm/main/docs/avatar.gif)
 
 ## Quick start
 
+glyphterm needs Node.js 20 or newer.
+
 ```sh
-npm install
-node bin/glyphterm.js                          # spinning torus, half-block style
-node bin/glyphterm.js examples/computer.obj    # a retro computer
-node bin/glyphterm.js star --style braille --color amber
-node bin/glyphterm.js --list                   # every primitive, style, palette, color
+npm install -g github:vylos-ai/glyphterm
+glyphterm                          # spinning torus, half-block style
+glyphterm examples/computer.obj    # a retro computer (from a clone of this repository)
+glyphterm star --style braille --color amber
+glyphterm avatar                   # the agent avatar (see below)
+glyphterm --list                   # every primitive, style, palette, color
 ```
 
-Run `npm link` to get a global `glyphterm` command.
+Or try it without installing: `npx github:vylos-ai/glyphterm`. From a clone, run
+`npm install` and then `node bin/glyphterm.js` instead of `glyphterm`.
 
 ### Controls
 
-| Input                      | Action                                                       |
-| -------------------------- | ------------------------------------------------------------ |
-| mouse drag, arrows, `hjkl` | rotate                                                       |
-| mouse wheel, `+` / `-`     | zoom                                                         |
-| `s` / `S`, `1`–`7`         | next / previous / pick style                                 |
-| `g` / `G`                  | glyph palette (ascii, lines, blocks, runes, hex, …)          |
-| `c` / `C`                  | color: phosphor, amber, cyan, magenta, ice, paper, original  |
-| `m` / `M`                  | next / previous model                                        |
-| `a` / `A`                  | next / previous avatar (core, buddy), each with its own view |
-| `space`                    | pause auto-rotation                                          |
-| `[` / `]`                  | spin slower / faster                                         |
-| `r`                        | reset view                                                   |
-| `q`, `Esc`, `Ctrl-C`       | quit                                                         |
+| Input                      | Action                                                              |
+| -------------------------- | ------------------------------------------------------------------- |
+| mouse drag, arrows, `hjkl` | rotate                                                              |
+| mouse wheel, `+` / `-`     | zoom                                                                |
+| `s` / `S`, `1`–`7`         | next / previous / pick style                                        |
+| `g` / `G`                  | glyph palette (ascii, lines, blocks, runes, hex, …)                 |
+| `c` / `C`                  | color: phosphor, amber, cyan, magenta, ice, paper, original         |
+| `m` / `M`                  | next / previous model                                               |
+| `a` / `A`                  | next / previous avatar (cloud, core, buddy), each with its own view |
+| `space`                    | pause auto-rotation                                                 |
+| `[` / `]`                  | spin slower / faster                                                |
+| `r`                        | reset view                                                          |
+| `q`, `Esc`, `Ctrl-C`       | quit                                                                |
 
 ### Styles
 
@@ -258,3 +255,10 @@ Notes:
 
 `npm test` runs the test suite, `npm run lint` checks style, and `npm run schema`
 regenerates the scene schema.
+
+## Credits and license
+
+glyphterm is built on [glyphcss](https://glyphcss.com) (MIT), which does all the
+rasterizing; it is an independent project, not affiliated with glyphcss.
+
+MIT License, © 2026 Vylos AI. See [LICENSE](LICENSE).

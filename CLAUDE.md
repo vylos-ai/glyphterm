@@ -153,4 +153,4 @@ because it is applied on top of the command line at startup.
 - **Formats:** test `.glb` and `.vox` with real files. Textures are currently ignored, and
   only material colors are used.
 - **Sixel/kitty graphics** as an optional high-resolution backend next to the text styles.
-- **Packaging:** `npm link` / publishing, a git repository, CI running `npm test`.
+- **Packaging:** publish to npm (`npm publish`; the package is ready, see `npm pack --dry-run`).
