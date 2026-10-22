@@ -18,6 +18,8 @@ function rand(i, k = 0) {
 }
 
 const smoothstep = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
+// Gentler still at both ends: for the particles' flight between formations.
+const smootherstep = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * x * (x * (6 * x - 15) + 10));
 const frac = (x) => x - Math.floor(x);
 
 /** Where each of `count` particles rests in the loose cloud: evenly spread through a ball. */
@@ -35,6 +37,11 @@ function turnY([x, y, z], deg) {
   return [x * Math.cos(a) + z * Math.sin(a), y, -x * Math.sin(a) + z * Math.cos(a)];
 }
 
+function turnX([x, y, z], deg) {
+  const a = (deg * Math.PI) / 180;
+  return [x, y * Math.cos(a) - z * Math.sin(a), y * Math.sin(a) + z * Math.cos(a)];
+}
+
 /** Every particle drifts a little, always, so nothing ever looks frozen. */
 const drift = (i, t, amount = 0.02) => [
   amount * Math.sin(t * 0.9 + rand(i, 4) * TAU),
@@ -49,23 +56,6 @@ const scale = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
 
 const CLUSTERS = 5;
 
-// Running: two suns on one orbit, always opposite each other around their
-// common center (where the tool-call pings start). Each trails a tail like
-// the comma of a yin-yang: half a turn long, spiraling out from the orbit
-// toward the rim and thinning, so it wraps around the other sun. The plane is
-// tilted toward the viewer; the suns turn clockwise.
-const ORBIT_SPEED = 1.4; // radians per second; seen from above the plane, positive is clockwise
-const ORBIT = 0.42;
-const RIM = 0.9; // where a tail ends
-const SUN = 0.17;
-const TILT = (50 * Math.PI) / 180; // how far the viewer is above the orbital plane
-
-/** A point in the orbital plane at radius `r` and angle `a`, as seen from above it. */
-const inOrbit = (r, a) => {
-  const [x, z] = [r * Math.cos(a), r * Math.sin(a)];
-  return [x, -z * Math.sin(TILT), z * Math.cos(TILT)];
-};
-
 /**
  * The formations for a cloud of COUNT × `density` particles: the same shapes
  * at any density, with parts that scale with it (the fine mode is denser).
@@ -73,42 +63,11 @@ const inOrbit = (r, a) => {
 function makeFormations(density) {
   const count = COUNT * density;
   const BASE = restingPlaces(count);
-  const SUN_PARTICLES = 100 * density; // per sun; the rest are the two tails
-  const TAIL_LANES = 3 * Math.round(Math.sqrt(density));
   // Rows of text: denser clouds have more, tighter rows of smaller steps.
   const ROWS = 13 * Math.round(Math.sqrt(density));
   const PER_ROW = Math.floor(count / ROWS);
   const CHAR_STEP = 0.034 / Math.sqrt(density);
   const ROW_STEP = 0.115 / Math.sqrt(density);
-
-  function binaryStars(i, t) {
-    const a = t * ORBIT_SPEED;
-    if (i < 2 * SUN_PARTICLES) {
-      // A sun: a disc facing the viewer, filled evenly from the center out
-      // (a sunflower spiral), its core drawn as @ and its rim as o.
-      const n = i % SUN_PARTICLES;
-      const r = SUN * Math.sqrt((n + 0.5) / SUN_PARTICLES);
-      const b = n * Math.PI * (3 - Math.sqrt(5));
-      const center = inOrbit(ORBIT, a + (i < SUN_PARTICLES ? 0 : Math.PI));
-      return { at: add(center, [r * Math.cos(b), r * Math.sin(b), 0]), bright: 1.4, char: r < SUN * 0.6 ? "@" : "o" };
-    }
-    // A tail: lanes of particles from the sun backward along the spiral, the band narrowing to a point.
-    const k = i - 2 * SUN_PARTICLES;
-    const per = (count - 2 * SUN_PARTICLES) / 2;
-    const side = k < per ? 0 : Math.PI;
-    const n = k % per;
-    const lane = n % TAIL_LANES;
-    const u = Math.floor(n / TAIL_LANES) / (per / TAIL_LANES); // 0 at the sun, 1 at the end
-    const width = 0.12 * (1 - u); // as wide as before, though the suns grew
-    const across = TAIL_LANES > 1 ? (2 * lane) / (TAIL_LANES - 1) - 1 : 0; // -1..1
-    const r = ORBIT + (RIM - ORBIT) * u + across * width;
-    const behind = a + side - Math.sign(ORBIT_SPEED) * u * Math.PI;
-    return {
-      at: inOrbit(r, behind),
-      bright: 1.3 * (1 - u * u) + 0.25,
-      char: u < 0.3 ? "*" : u < 0.65 ? "+" : "·",
-    };
-  }
 
   // Rows of text; while coding they scroll up and the newest line is typed out.
   function textRows(i, t, { rate, indent }) {
@@ -178,7 +137,13 @@ function makeFormations(density) {
     },
     coding: (i, t) => textRows(i, t, { rate: 1.1, indent: true }),
     writing: (i, t) => textRows(i, t, { rate: 0.6, indent: false }),
-    running: (i, t) => binaryStars(i, t),
+    running: (i, t) => {
+      // A fast, tight vortex.
+      const a = rand(i, 17) * TAU + t * (3 + rand(i, 18));
+      const r = 0.3 + 0.38 * rand(i, 19);
+      const y = (rand(i, 18) - 0.5) * 0.22 + 0.06 * Math.sin(a * 2);
+      return { at: turnX([r * Math.cos(a), y, r * Math.sin(a)], 18), bright: 0.9 };
+    },
     "needs-you": (i, t) => {
       const pulse = 1 + 0.06 * Math.sin(t * 6);
       return { at: add(scale(questionMark(i), 1.2 * pulse), drift(i, t, 0.01)), bright: 1 };
@@ -222,8 +187,21 @@ function cloudOf(density) {
   return clouds.get(density);
 }
 
-const TRANSITION = 0.9; // seconds for a particle to reach its new formation
-const STAGGER = 0.45; // spread of the particles' start times
+const TRANSITION = 1.6; // seconds for a particle to reach its new formation
+const STAGGER = 0.6; // spread of the particles' start times
+
+/** The color between `a` and `b` (#rrggbb) at `t` 0..1. */
+function blend(a, b, t) {
+  if (!a || !b || a === b) return t < 0.5 ? (a ?? b) : (b ?? a);
+  const [x, y] = [a, b].map((hex) => [1, 3, 5].map((k) => parseInt(hex.slice(k, k + 2), 16)));
+  return `#${x
+    .map((c, k) =>
+      Math.round(c + (y[k] - c) * t)
+        .toString(16)
+        .padStart(2, "0"),
+    )
+    .join("")}`;
+}
 
 /**
  * The cloud for `look` ({ activity, previous, age, glyphs, fine }) at time
@@ -248,15 +226,15 @@ export function cloudPoints(
 
   return Array.from({ length: count }, (_, i) => {
     const target = now(i, t);
-    const mix = before ? smoothstep((age - rand(i, 24) * stagger) / duration) : 1;
-    // A formation may fix a particle's character (the binary stars' cores).
+    const mix = before ? (fast ? smoothstep : smootherstep)((age - rand(i, 24) * stagger) / duration) : 1;
+    // A formation may fix a particle's character.
     if (mix >= 1)
       return { at: target.at, char: target.char ?? glyph(i, t, activity, glyphs), color, bright: target.bright };
     const from = before(i, t);
     return {
       at: from.at.map((v, k) => v + (target.at[k] - v) * mix),
       char: (mix < 0.5 ? from.char : target.char) ?? glyph(i, t, mix < 0.5 ? previous : activity, glyphs),
-      color: mix < 0.5 ? beforeColor : color,
+      color: blend(beforeColor, color, mix),
       bright: from.bright + (target.bright - from.bright) * mix,
     };
   });

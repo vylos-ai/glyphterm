@@ -137,10 +137,12 @@ test("the cloud regroups from one formation to the next and draws its characters
   assert.ok(points.length > 100);
   assert.ok(points.every((p) => p.color === ACTIVITIES.coding.color && p.char.length === 1));
 
-  // Halfway, some particles are still on their way, in the old color.
-  const halfway = avatarGeometry("cloud", look(0.8), 9).points;
-  assert.ok(halfway.some((p) => p.color === ACTIVITIES.thinking.color));
-  assert.ok(halfway.some((p) => p.color === ACTIVITIES.coding.color));
+  // Right after the change some particles haven't set off yet; on the way, their color blends into the new one.
+  const early = avatarGeometry("cloud", look(0.2), 9).points;
+  assert.ok(early.some((p) => p.color === ACTIVITIES.thinking.color));
+  const halfway = avatarGeometry("cloud", look(1.2), 9).points;
+  const between = (p) => p.color !== ACTIVITIES.thinking.color && p.color !== ACTIVITIES.coding.color;
+  assert.ok(halfway.some(between), "colors in between");
   const settled = avatarGeometry("cloud", { activity: "coding" }, 9).points;
   assert.deepEqual(
     avatarGeometry("cloud", look(5), 9).points.map((p) => p.at),
